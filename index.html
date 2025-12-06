@@ -5,19 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>포천아트밸리 천문과학관 AI 도슨트</title>
     <style>
-        /* 스타일은 기존과 동일 */
+        /* --- 기본 스타일 (우주 테마) --- */
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
+        /* 헤더 영역 */
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
-        .character-img { width: 50px; height: 50px; background: white; border-radius: 50%; border: 2px solid #4fc3f7; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
-        .character-img.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
+        
+        /* 캐릭터 애니메이션 */
+        .character-img { 
+            width: 55px; height: 55px; 
+            background: white; border-radius: 50%; border: 3px solid #4fc3f7; 
+            display: flex; align-items: center; justify-content: center; font-size: 28px; 
+            animation: float 3s ease-in-out infinite; /* 둥둥 떠다니기 */
+            transition: 0.3s;
+        }
+        .character-img.talking { 
+            border-color: #ffeb3b; 
+            box-shadow: 0 0 15px #ffeb3b; 
+            animation: bounce 0.5s infinite alternate; /* 말할 때 튀기 */
+        }
+        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
         @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
 
+        /* 채팅 영역 */
         .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
         .message { padding: 12px 16px; border-radius: 18px; max-width: 85%; line-height: 1.5; font-size: 0.95rem; word-break: break-word; animation: popIn 0.3s; }
         .user-msg { background: #3949ab; align-self: flex-end; border-bottom-right-radius: 4px; color: white; }
@@ -25,6 +40,7 @@
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
+        /* 선택지 버튼 (가로 스크롤) */
         .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.3); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .choice-area::-webkit-scrollbar { display: none; }
         .choice-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
@@ -32,12 +48,14 @@
         .choice-btn.move-btn { border-color: #ff9800; color: #ff9800; }
         .choice-btn.move-btn:active { background: #ff9800; color: white; }
 
+        /* 하단 입력창 */
         .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
         .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
         .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         #mic-btn { background: #f44336; }
         #mic-btn.listening { background: #4caf50; animation: pulse 1.5s infinite; }
         #send-btn { background: #3949ab; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); } 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); } }
     </style>
 </head>
 <body>
@@ -55,7 +73,7 @@
     <div class="chat-area" id="chat-box">
         <div class="message ai-msg">
             안녕! 래비, 도기, 캐티야! 🐰🐶🐱<br>
-            지금 우리는 <b>로비</b>에 있어.<br>
+            포천아트밸리 천문과학관에 온 걸 환영해.<br>
             아래 버튼을 눌러서 투어를 시작해볼까?
         </div>
     </div>
@@ -69,9 +87,10 @@
     </div>
 
     <script type="module">
+        // 1. 지식 파일 불러오기
         import { exhibitionData } from './knowledge.js';
 
-        // --- 1. 구역별 설정 및 버튼 정의 (수정된 knowledge.js 구조 반영) ---
+        // 2. 구역별 설정 및 버튼 정의 (수정된 동선 반영)
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -79,6 +98,7 @@
                 basePrompt: "너는 로비 도슨트야. 아트밸리 역사와 과학관 소개를 친절하게 해줘.",
                 buttons: [
                     { text: "아트밸리는 원래 뭐하던 곳?", type: "ask", key: "artvalley_history" },
+                    { text: "천주호는 어떻게 생겼어?", type: "ask", key: "artvalley_history" },
                     { text: "1전시실(우측)로 이동 👉", type: "move", target: "ex1" }
                 ]
             },
@@ -113,6 +133,7 @@
                 buttons: [
                     { text: "월면차 바퀴는 왜 철망이야?", type: "ask", key: "lunar_rover" },
                     { text: "지구온 시스템이 뭐야?", type: "ask", key: "earth_on" },
+                    { text: "이 월면차 진짜 달에 갔던 거야?", type: "ask", key: "lunar_rover" },
                     { text: "👈 2전시실로", type: "move", target: "ex2" },
                     { text: "3전시실로 이동 👉", type: "move", target: "ex3" }
                 ]
@@ -133,18 +154,17 @@
         };
 
         let currentZoneId = 'lobby';
+        let idleTimer = null; // 심심함 타이머
+
         const chatBox = document.getElementById('chat-box');
         const charIcon = document.getElementById('char-icon');
 
-        // --- 기능 구현 ---
+        // --- 3. 핵심 로직 구현 ---
 
-        // ★ 핵심: knowledge.js에서 데이터 꺼내오는 함수
+        // (1) 지식 파일에서 데이터 찾기 함수
         function getExhibitionContent(dataKey) {
-            // 배열에서 id가 일치하는 항목 찾기
             const item = exhibitionData.find(d => d.id === dataKey);
             if (!item) return null;
-
-            // AI가 이해하기 쉽게 문자열로 변환
             return `
             [전시물 제목]: ${item.title}
             [기본 설명]: ${item.description.basic}
@@ -153,34 +173,39 @@
             `;
         }
 
+        // (2) 질문 처리 및 AI 호출 (가장 중요한 부분!)
         async function handleUserInput(text, dataKey = null) {
+            resetIdleTimer();
             addMessage(text, 'user');
-            
+
             let contextData = "";
             
-            // 1. 버튼을 눌러서 dataKey가 넘어온 경우 -> DB에서 검색
+            // 데이터가 있으면 가져와서 프롬프트에 넣음
             if (dataKey) {
                 const foundData = getExhibitionContent(dataKey);
                 if (foundData) {
-                    contextData = `
-                    [참고 자료]
-                    ${foundData}
-                    
-                    위 [참고 자료]를 바탕으로 관람객의 질문("${text}")에 대해 
-                    마스코트(래비, 도기, 캐티)의 말투로 친절하고 재미있게 설명해줘.
-                    `;
+                    contextData = `[참고 자료] ${foundData}`;
                 }
             } else {
-                // 2. 그냥 타이핑해서 물어본 경우
-                contextData = `관람객의 질문: "${text}". 이 질문에 대해 아는 대로 친절하게 답해줘.`;
+                // 없으면 일반 대화
+                contextData = `관람객 질문: "${text}"`;
             }
 
-            const zonePrompt = zones[currentZoneId].basePrompt;
-            const finalPrompt = `${zonePrompt}\n${contextData}`;
+            // ★ 강력한 시스템 프롬프트 (거짓말 금지 & 짧게 말하기) ★
+            const finalPrompt = `
+                ${zones[currentZoneId].basePrompt}
+                
+                [절대 지켜야 할 규칙]
+                1. **무조건 3문장 이내**로 짧고 핵심만 말해. (가장 중요!)
+                2. 스마트폰 채팅이니까 긴 글은 금지야.
+                3. 제공된 [참고 자료]에 있는 내용만 사실로 믿어. 자료에 없으면 "안내 데스크에 물어봐주세요"라고 해. (지어내기 절대 금지)
+                4. 말투는 마스코트(래비, 도기, 캐티)처럼 귀엽고 친근한 반말(~해, ~야)을 써.
+
+                ${contextData}
+            `;
 
             document.getElementById('status-text').innerText = "생각하는 중...";
             
-            // AI 호출
             const reply = await callGeminiAPI(text, finalPrompt);
             
             document.getElementById('status-text').innerText = "말하는 중...";
@@ -188,42 +213,12 @@
             speak(reply);
         }
 
-        function addMessage(text, type) {
-            const div = document.createElement('div');
-            if(type === 'system') div.className = 'system-msg';
-            else div.className = `message ${type === 'user' ? 'user-msg' : 'ai-msg'}`;
-            div.innerHTML = text;
-            chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        async function callGeminiAPI(text, systemPrompt) {
-            try {
-                const response = await fetch('/api/chat', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ message: text, systemPrompt: systemPrompt })
-                });
-                const data = await response.json();
-                return data.reply || "오류가 났어. 다시 말해줄래?";
-            } catch (err) { return "네트워크를 확인해줘!"; }
-        }
-
-        function speak(text) {
-            charIcon.classList.add('talking');
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ko-KR';
-            window.speechSynthesis.speak(utterance);
-            utterance.onend = () => {
-                charIcon.classList.remove('talking');
-                document.getElementById('status-text').innerText = "같이 둘러보자!";
-            };
-        }
-
-        // 구역 변경 함수
+        // (3) 구역 변경 함수
         window.setZone = (zoneId) => {
             currentZoneId = zoneId;
             const zoneConfig = zones[zoneId];
+            
+            // UI 업데이트
             document.getElementById('zone-name').innerText = zoneConfig.name;
             document.getElementById('char-icon').innerText = zoneConfig.icon;
             
@@ -245,17 +240,72 @@
                 };
                 container.appendChild(buttonEl);
             });
+
+            resetIdleTimer();
         };
 
-        // 초기화
-        window.onload = () => { setZone('lobby'); };
+        // (4) 심심할 때 말 거는 기능
+        function resetIdleTimer() {
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(triggerIdleMessage, 20000); // 20초 후 실행
+        }
 
-        // 입력창 이벤트 등
+        function triggerIdleMessage() {
+            // 구역별 심심할 때 멘트 (간단 버전)
+            const idleMents = [
+                "궁금한 게 있으면 버튼을 눌러봐!",
+                "천문과학관 재밌지 않아?",
+                "혹시 다리 아프면 좀 쉬었다 가자."
+            ];
+            const randomMent = idleMents[Math.floor(Math.random() * idleMents.length)];
+            addMessage(randomMent, 'ai');
+            speak(randomMent);
+        }
+
+        // (5) API 호출 & TTS & UI 유틸
+        async function callGeminiAPI(text, systemPrompt) {
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ message: text, systemPrompt: systemPrompt })
+                });
+                const data = await response.json();
+                return data.reply || "오류가 났어. 다시 말해줄래?";
+            } catch (err) { return "네트워크를 확인해줘!"; }
+        }
+
+        function speak(text) {
+            charIcon.classList.add('talking');
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            window.speechSynthesis.speak(utterance);
+            utterance.onend = () => {
+                charIcon.classList.remove('talking');
+                document.getElementById('status-text').innerText = "같이 둘러보자!";
+                resetIdleTimer();
+            };
+        }
+
+        function addMessage(text, type) {
+            const div = document.createElement('div');
+            if(type === 'system') div.className = 'system-msg';
+            else div.className = `message ${type === 'user' ? 'user-msg' : 'ai-msg'}`;
+            div.innerHTML = text;
+            chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        // (6) 이벤트 리스너 및 초기화
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
         sendBtn.addEventListener('click', () => { if(textInput.value) { handleUserInput(textInput.value); textInput.value=''; }});
         textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
         
+        document.body.addEventListener('click', resetIdleTimer);
+        document.body.addEventListener('touchstart', resetIdleTimer);
+
+        // 음성인식
         const micBtn = document.getElementById('mic-btn');
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if(SpeechRecognition) {
@@ -265,6 +315,9 @@
             recognition.onresult = (e) => { micBtn.classList.remove('listening'); handleUserInput(e.results[0][0].transcript); };
             recognition.onspeechend = () => micBtn.classList.remove('listening');
         } else { micBtn.style.display = 'none'; }
+
+        // 시작!
+        window.onload = () => { setZone('lobby'); };
     </script>
 </body>
 </html>
