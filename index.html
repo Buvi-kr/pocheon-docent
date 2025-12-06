@@ -1,0 +1,153 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>포천아트밸리 천문과학관 AI 도슨트</title>
+    <style>
+        /* 기본 스타일 및 우주 테마 */
+        body { margin: 0; display: flex; flex-direction: column; align-items: center; justify-content: space-between; height: 100vh; background: #000; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
+        .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 70%); }
+        .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.5; z-index: -1; }
+
+        /* 전시물 정보 영역 */
+        .info-area { text-align: center; margin-top: 50px; padding: 20px; z-index: 10; }
+        .character-img { width: 180px; height: 180px; background: rgba(255, 255, 255, 0.1); border-radius: 50%; margin: 0 auto 20px; display: flex; align-items: center; justify-content: center; font-size: 60px; border: 3px solid rgba(100, 181, 246, 0.5); backdrop-filter: blur(5px); animation: float 3s ease-in-out infinite; }
+        @keyframes float { 0% { transform: translateY(0px); } 50% { transform: translateY(-15px); } 100% { transform: translateY(0px); } }
+        
+        h1 { margin: 0; font-size: 1.8rem; text-shadow: 0 0 10px #4fc3f7; }
+        .subtitle { color: #b3e5fc; font-size: 0.9rem; margin-top: 5px; }
+
+        /* 대화 상태 텍스트 */
+        .status-box { flex: 1; display: flex; flex-direction: column; justify-content: center; align-items: center; width: 80%; text-align: center; }
+        #status-text { font-size: 1.1rem; color: #fff; margin-bottom: 15px; font-weight: bold; }
+        #ai-response { font-size: 1rem; color: #ddd; line-height: 1.5; max-height: 200px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.3); border-radius: 10px; width: 100%; display: none; }
+
+        /* 하단 컨트롤러 */
+        .control-area { width: 100%; padding-bottom: 40px; display: flex; justify-content: center; background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); }
+        .mic-btn { width: 80px; height: 80px; border-radius: 50%; border: none; background: #f44336; color: white; font-size: 32px; cursor: pointer; box-shadow: 0 0 20px rgba(244, 67, 54, 0.4); transition: 0.2s; display: flex; align-items: center; justify-content: center; }
+        .mic-btn:active { transform: scale(0.9); }
+        .mic-btn.listening { background: #4caf50; box-shadow: 0 0 30px #4caf50; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); } 70% { box-shadow: 0 0 0 20px rgba(76, 175, 80, 0); } 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); } }
+
+    </style>
+</head>
+<body>
+    <div class="background"></div>
+    <div class="stars"></div>
+
+    <div class="info-area">
+        <div class="character-img" id="char-icon">🤖</div>
+        <h1 id="exhibit-name">전시물 찾는 중...</h1>
+        <div class="subtitle">AI 도슨트</div>
+    </div>
+
+    <div class="status-box">
+        <div id="status-text">아래 버튼을 누르고 질문하세요</div>
+        <div id="ai-response"></div>
+    </div>
+
+    <div class="control-area">
+        <button class="mic-btn" id="mic-btn">🎙️</button>
+    </div>
+
+    <script>
+        // --- 1. 전시물 데이터 (여기에 내용을 계속 추가하면 됩니다) ---
+        const exhibits = {
+            'jupiter': { name: '목성 (Jupiter)', icon: '🪐', prompt: '너는 태양계의 왕, 목성이다. 아주 거대하고 위엄 있지만 아이들에게 친절해. 대적점에 대해 자랑해줘.' },
+            'apollo': { name: '아폴로 11호', icon: '🚀', prompt: '너는 인류 최초로 달에 착륙한 아폴로 11호야. 모험심이 강하고 용감한 말투를 써.' },
+            'default': { name: '안내 데스크', icon: '💁', prompt: '너는 천문과학관의 친절한 안내원 포우리야.' }
+        };
+
+        // URL에서 ID 가져오기
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+        const currentData = exhibits[id] || exhibits['default'];
+
+        // 화면 세팅
+        document.getElementById('exhibit-name').innerText = currentData.name;
+        document.getElementById('char-icon').innerText = currentData.icon;
+
+        // --- 2. 음성 인식 & 합성 설정 ---
+        const micBtn = document.getElementById('mic-btn');
+        const statusText = document.getElementById('status-text');
+        const aiResponseBox = document.getElementById('ai-response');
+
+        const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+        let recognition = null;
+        if(SpeechRecognition) {
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ko-KR';
+            recognition.interimResults = false;
+        } else {
+            statusText.innerText = "이 브라우저는 음성 인식을 지원하지 않습니다 (크롬 권장)";
+        }
+
+        // --- 3. 버튼 이벤트 ---
+        micBtn.addEventListener('click', () => {
+            if (!recognition) return;
+            
+            // TTS가 말하고 있다면 멈춤
+            window.speechSynthesis.cancel();
+
+            micBtn.classList.add('listening');
+            statusText.innerText = "듣고 있어요... 말씀하세요!";
+            aiResponseBox.style.display = 'none';
+            recognition.start();
+        });
+
+        if(recognition) {
+            recognition.onresult = async (event) => {
+                const userMsg = event.results[0][0].transcript;
+                micBtn.classList.remove('listening');
+                statusText.innerText = "생각하는 중...";
+                
+                // 백엔드로 전송
+                const reply = await callGeminiAPI(userMsg);
+                
+                // 답변 출력 및 읽기
+                statusText.innerText = "답변하는 중...";
+                aiResponseBox.innerText = reply;
+                aiResponseBox.style.display = 'block';
+                speak(reply);
+            };
+
+            recognition.onerror = () => {
+                micBtn.classList.remove('listening');
+                statusText.innerText = "다시 눌러서 질문해주세요.";
+            };
+        }
+
+        // --- 4. 백엔드 통신 (Gemini 호출) ---
+        async function callGeminiAPI(text) {
+            try {
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: text,
+                        systemPrompt: currentData.prompt 
+                    })
+                });
+                const data = await response.json();
+                return data.reply;
+            } catch (err) {
+                console.error(err);
+                return "죄송해요, 연결 상태가 좋지 않아요.";
+            }
+        }
+
+        // --- 5. 음성 합성 (TTS) ---
+        function speak(text) {
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            utterance.rate = 1.0;
+            window.speechSynthesis.speak(utterance);
+            
+            utterance.onend = () => {
+                statusText.innerText = "버튼을 누르고 질문하세요";
+            };
+        }
+    </script>
+</body>
+</html>
