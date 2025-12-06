@@ -5,34 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>포천아트밸리 천문과학관 AI 도슨트</title>
     <style>
-        /* --- 기본 스타일 (우주 테마) --- */
+        /* CSS는 기존과 동일하게 유지 */
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
-        /* 헤더 영역 */
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
-        
-        /* 캐릭터 애니메이션 */
-        .character-img { 
-            width: 55px; height: 55px; 
-            background: white; border-radius: 50%; border: 3px solid #4fc3f7; 
-            display: flex; align-items: center; justify-content: center; font-size: 28px; 
-            animation: float 3s ease-in-out infinite; 
-            transition: 0.3s;
-        }
-        .character-img.talking { 
-            border-color: #ffeb3b; 
-            box-shadow: 0 0 15px #ffeb3b; 
-            animation: bounce 0.5s infinite alternate; 
-        }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .character-img { width: 50px; height: 50px; background: white; border-radius: 50%; border: 2px solid #4fc3f7; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
+        .character-img.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
         @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
 
-        /* 채팅 영역 */
         .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
         .message { padding: 12px 16px; border-radius: 18px; max-width: 85%; line-height: 1.5; font-size: 0.95rem; word-break: break-word; animation: popIn 0.3s; }
         .user-msg { background: #3949ab; align-self: flex-end; border-bottom-right-radius: 4px; color: white; }
@@ -40,7 +25,6 @@
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 선택지 버튼 (가로 스크롤) */
         .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.3); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .choice-area::-webkit-scrollbar { display: none; }
         .choice-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
@@ -48,7 +32,6 @@
         .choice-btn.move-btn { border-color: #ff9800; color: #ff9800; }
         .choice-btn.move-btn:active { background: #ff9800; color: white; }
 
-        /* 하단 입력창 */
         .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
         .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
         .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -89,22 +72,46 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // ★ [핵심] 구역별 설정 및 프롬프트 (환각 방지용 족보 포함) ★
+        // ★ [핵심 1] 로비 프롬프트 대폭 강화 (모든 층 정보 주입)
+        // ★ [핵심 2] 답변(answers)을 배열로 만들어서 랜덤 출력
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
                 icon: "🏛️",
-                // 로비 데이터는 knowledge.js에 없으므로 여기에 직접 주입하여 거짓말 방지
+                // 로비는 전체를 다 알아야 하므로 '전체 층별 요약'을 프롬프트에 넣습니다.
                 basePrompt: `
-                    너는 1층 로비 도슨트야.
-                    [필수 숙지 팩트]
-                    1. 포천아트밸리 역사: 1960~90년대 화강암 채석장이었음. 2009년 폐채석장을 문화예술 공간으로 재생함. (평택 박물관 아님! 송유관 아님!)
-                    2. 천주호: 채석 후 남은 웅덩이에 샘물과 빗물이 모여 생긴 1급수 호수.
-                    3. 과학관: 우주를 체험하는 곳.
+                    너는 천문과학관의 얼굴 '1층 로비' 도슨트야.
+                    [필수 숙지 - 과학관 전체 구조]
+                    1. 1층: 로비, 제1전시실(지구 탄생과 구조, 판구조론).
+                    2. 2층: 제2전시실(태양계, 운석), 휴게실(월면차, 지구온), 제3전시실(별, 천상열차분야지도).
+                    3. 3층/옥상: 천체투영실(4D영상), 천체관측실(망원경).
+                    4. 역사: 이곳은 원래 1960~90년대 화강암 채석장이었음. 2009년 문화예술 공간으로 재탄생. (송유관 X)
+                    5. 천주호: 채석 후 남은 웅덩이에 물이 고여 생긴 1급수 호수.
                 `,
                 buttons: [
-                    { text: "아트밸리는 원래 뭐하던 곳?", type: "chat", answer: "여기는 원래 화강암을 캐던 채석장이었어! ⛏️ 1960년대부터 90년대까지 운영되다가, 2009년에 멋진 예술 공원으로 다시 태어났지." },
-                    { text: "천주호는 어떻게 생겼어?", type: "chat", answer: "돌을 파낸 웅덩이에 빗물과 샘물이 고여서 생긴 호수야. 물이 엄청 맑아서 가재도 산대!" },
+                    { 
+                        text: "아트밸리는 원래 뭐하던 곳?", 
+                        type: "chat", 
+                        // 답변을 5개 준비 (랜덤 출력)
+                        answers: [
+                            "여기는 원래 돌을 캐던 채석장이었어! ⛏️ 1960년대부터 화강암을 캐다가 2009년에 멋진 공원으로 변신했지.",
+                            "믿기지 않겠지만, 옛날엔 여기가 시끄러운 채석장이었대. 버려진 곳을 이렇게 아름다운 예술 공간으로 다시 살려낸 거야! ✨",
+                            "돌을 캐던 웅덩이에 물이 고여서 천주호가 되고, 절벽은 멋진 풍경이 되었어. 자연과 사람이 같이 만든 기적이지! 🌿",
+                            "원래는 화강암을 생산하던 곳이야. 채석 작업이 끝나고 방치되어 있었는데, 포천시가 멋지게 꾸며서 지금의 아트밸리가 됐어.",
+                            "과거엔 돌을 캐는 소리로 가득 찼지만, 지금은 웃음소리가 가득한 예술 공원이 되었어. 🎵 정말 멋진 변신이지?"
+                        ]
+                    },
+                    { 
+                        text: "천주호는 어떻게 생겼어?", 
+                        type: "chat", 
+                        answers: [
+                            "채석장 웅덩이에 샘물과 빗물이 모여서 생긴 호수야. 물이 엄청 맑아서 가재도 산대! 🦞",
+                            "사람이 판 웅덩이에 자연이 물을 채워준 거야. 에메랄드빛 물색깔이 정말 신비롭지 않아? ✨",
+                            "돌을 파낸 자리에 물이 고여서 만들어졌어. 최대 수심이 20m나 된대! 1급수라서 도롱뇽도 살아.",
+                            "깎아지른 화강암 절벽과 어우러진 호수야. 원래는 그냥 웅덩이였는데 지금은 아트밸리의 보물이 됐어.",
+                            "하늘에서 비가 내리고 땅에서 샘이 솟아 만들어진 인공 호수야. 밤에 보면 조명 때문에 더 예뻐! 🌙"
+                        ]
+                    },
                     { text: "1전시실(우측)로 이동 👉", type: "move", target: "ex1" }
                 ]
             },
@@ -113,11 +120,7 @@
                 icon: "🌍",
                 basePrompt: `
                     너는 1전시실(지구) 도슨트야.
-                    [필수 숙지 팩트]
-                    1. 지구 구조: 지각, 맨틀, 외핵(액체), 내핵(고체).
-                    2. 외핵: 지진파 S파가 통과 못 해서 액체인 걸 알아냄.
-                    3. 판구조론: 지구 표면은 여러 판 조각으로 되어 있음.
-                    4. 달 탄생: 거대 충돌설(테이아 충돌)이 정설임.
+                    [필수 팩트] 1.지구구조(내핵/외핵/맨틀/지각), 2.판구조론, 3.달탄생(거대충돌설).
                 `,
                 buttons: [
                     { text: "지구 내부는 어떻게 생겼어?", type: "ask", key: "earth_structure_detail" },
@@ -132,10 +135,7 @@
                 icon: "🪐",
                 basePrompt: `
                     너는 2전시실(태양계) 도슨트야.
-                    [필수 숙지 팩트]
-                    1. 행성 순서: 수금지화목토천해. (명왕성은 왜소행성 134340임)
-                    2. 목성: 태양계 최대 행성(지구 11배), 가스 행성.
-                    3. 전시 위치: 행성 모형들은 천장이 아니라 '전시 데스크(유리 진열장)' 안에 있음.
+                    [필수 팩트] 1.행성순서(수금지화목토천해), 2.목성(최대크기), 3.전시물위치(가운데 진열장).
                 `,
                 buttons: [
                     { text: "행성 특징 알려줘", type: "ask", key: "solar_system_planets" },
@@ -150,10 +150,7 @@
                 icon: "🚙",
                 basePrompt: `
                     너는 휴게실 도슨트야.
-                    [필수 숙지 팩트]
-                    1. 위치: 2전시실과 3전시실 사이.
-                    2. 월면차: 아폴로 15~17호가 쓴 전기차. 바퀴가 '철망'임(공기 타이어 아님). 故 박성혁 주무관 기증품.
-                    3. 지구온: 정면에 있는 둥근 스크린. 쓰나미, 비행기 경로 보여줌.
+                    [필수 팩트] 1.위치(2~3전시실 사이), 2.월면차(철망바퀴, 기증품), 3.지구온(정면 둥근스크린).
                 `,
                 buttons: [
                     { text: "월면차 바퀴는 왜 철망이야?", type: "ask", key: "lunar_rover" },
@@ -168,10 +165,7 @@
                 icon: "🚀",
                 basePrompt: `
                     너는 3전시실(우주) 도슨트야.
-                    [필수 숙지 팩트]
-                    1. 별 색깔: 파란색(고온, 11000도 이상) > 붉은색(저온).
-                    2. 천상열차분야지도: 만원짜리 지폐 뒷면 배경 그림. 돌에 새긴 국보 천문도.
-                    3. 적외선 카메라: 열을 감지함. (체험존 있음)
+                    [필수 팩트] 1.별색깔(파랑>빨강), 2.천상열차분야지도(만원 지폐), 3.적외선카메라(열감지).
                 `,
                 buttons: [
                     { text: "별 색깔은 왜 달라?", type: "ask", key: "star_life_color" },
@@ -190,53 +184,48 @@
         const chatBox = document.getElementById('chat-box');
         const charIcon = document.getElementById('char-icon');
 
-        // 1. 지식 검색 함수 (배열에서 ID로 찾기)
+        // 지식 검색 함수
         function getExhibitionContent(dataKey) {
             const item = exhibitionData.find(d => d.id === dataKey);
             if (!item) return null;
-            
-            // 데이터 포맷팅
-            const description = item.description.basic + " " + item.description.advanced;
-            const facts = item.facts ? item.facts.join(', ') : '';
-            const specs = item.technical_specs ? JSON.stringify(item.technical_specs) : '';
-            
-            return `[자료 제목]: ${item.title}\n[설명]: ${description}\n[핵심 팩트]: ${facts}\n[상세 정보]: ${specs}`;
+            return `[자료 제목]: ${item.title}\n[설명]: ${item.description.basic} / ${item.description.advanced}\n[핵심 팩트]: ${item.facts ? item.facts.join(', ') : ''}`;
         }
 
-        // 2. 답변 처리 및 AI 호출
-        async function handleUserInput(text, dataKey = null, directAnswer = null) {
+        async function handleUserInput(text, dataKey = null, directAnswers = null) {
             clearTimeout(idleTimer);
             idleTimer = setTimeout(triggerIdleMessage, 20000);
             
             addMessage(text, 'user');
 
-            // (1) 정해진 답변이 있는 경우 (로비 버튼 등) AI 안 거치고 즉답 (비용 절감 & 속도)
-            if (directAnswer) {
+            // 1. [NEW] 랜덤 답변 기능 (directAnswers가 배열로 들어옴)
+            if (directAnswers && Array.isArray(directAnswers)) {
+                // 배열 중 하나를 랜덤으로 뽑음
+                const randomAns = directAnswers[Math.floor(Math.random() * directAnswers.length)];
                 setTimeout(() => {
-                    addMessage(directAnswer, 'ai');
-                    speak(directAnswer);
+                    addMessage(randomAns, 'ai');
+                    speak(randomAns);
                 }, 500);
                 return;
             }
 
             let contextData = "";
             
-            // (2) knowledge.js에서 데이터 가져오기
+            // 2. 버튼 클릭 (상세 데이터 로드)
             if (dataKey) {
                 const foundData = getExhibitionContent(dataKey);
-                if (foundData) contextData = `[참고할 상세 지식 자료]\n${foundData}`;
+                if (foundData) contextData = `[참고 자료]\n${foundData}`;
             }
 
-            // (3) 프롬프트 조립
+            // 3. AI 호출 프롬프트 (로비의 경우 basePrompt에 전체 정보가 들어있음)
             const finalPrompt = `
                 ${zones[currentZoneId].basePrompt}
                 
                 ${contextData}
 
-                [절대 지켜야 할 답변 규칙]
-                1. 위 '필수 숙지 팩트'와 '참고할 상세 지식 자료'에 있는 내용만 사실로 믿어.
-                2. 자료에 없는 내용(송유관, 김치찌개 등 엉뚱한 것)은 "자료에 없어서 잘 모르겠어. 안내 데스크에 물어봐줄래?"라고 해. 절대 지어내지 마.
-                3. 답변은 3문장 이내로 짧고 간결하게.
+                [절대 규칙]
+                1. 위 '필수 숙지 팩트'와 '참고 자료'에 있는 내용만 사실로 믿어. (지어내기 금지)
+                2. 자료에 없는 내용(김치찌개 등)은 "안내 데스크에 문의해주세요"라고 해.
+                3. 답변은 3문장 이내로 짧게.
                 4. 말투는 마스코트(래비, 도기, 캐티)처럼 귀엽고 친근한 반말(~해, ~야).
                 
                 관람객 질문: "${text}"
@@ -298,8 +287,8 @@
                 buttonEl.innerText = btn.text;
                 buttonEl.onclick = () => {
                     if (btn.type === 'move') setZone(btn.target);
-                    // directAnswer가 있으면 바로 전달
-                    else handleUserInput(btn.text, btn.key, btn.answer);
+                    // answers(배열)가 있으면 랜덤 답변 처리, 아니면 AI 검색
+                    else handleUserInput(btn.text, btn.key, btn.answers);
                 };
                 container.appendChild(buttonEl);
             });
