@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>포천아트밸리 천문과학관 AI 도슨트</title>
     <style>
-        /* --- 기본 스타일 (기존 유지) --- */
+        /* --- 기본 스타일 --- */
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
@@ -25,24 +25,59 @@
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 선택지 버튼 영역 */
-        .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.3); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-        .choice-area::-webkit-scrollbar { display: none; }
-        
-        .choice-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.3s; flex-shrink: 0; }
-        .choice-btn:active { background: #4fc3f7; color: black; }
-        
-        /* 이동 버튼 */
-        .choice-btn.move-btn { border-color: #ff9800; color: #ff9800; }
-        .choice-btn.move-btn:active { background: #ff9800; color: white; }
-
-        /* [NEW] 이미 클릭한 버튼 스타일 (흐리게 & 뒤로 보냄) */
-        .choice-btn.visited {
-            opacity: 0.5;
-            border-color: #aaa;
-            color: #aaa;
-            background: rgba(0,0,0,0.2);
+        /* [NEW] 이동 버튼 영역 (위쪽) */
+        .nav-area {
+            flex: 0 0 auto;
+            display: flex;
+            justify-content: center; /* 가운데 정렬 */
+            gap: 10px;
+            padding: 10px 15px 5px 15px;
+            background: rgba(0,0,0,0.4); /* 약간 어둡게 배경 */
+            border-top: 1px solid rgba(255,255,255,0.05);
         }
+
+        /* 질문 버튼 영역 (아래쪽, 가로 스크롤) */
+        .choice-area { 
+            flex: 0 0 auto; 
+            display: flex; 
+            gap: 10px; 
+            padding: 5px 15px 10px 15px; /* 위쪽 패딩 줄임 */
+            overflow-x: auto; 
+            background: rgba(0,0,0,0.4); 
+            white-space: nowrap; 
+            -webkit-overflow-scrolling: touch; 
+            scrollbar-width: none; 
+        }
+        .choice-area::-webkit-scrollbar { display: none; }
+
+        /* 버튼 공통 스타일 */
+        .choice-btn { 
+            border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; padding: 8px 16px;
+        }
+
+        /* 질문 버튼 스타일 */
+        .ask-btn {
+            background: rgba(255, 255, 255, 0.1); 
+            border: 1px solid #4fc3f7; 
+            color: #4fc3f7;
+        }
+        .ask-btn:active { background: #4fc3f7; color: black; }
+        
+        /* [NEW] 이미 본 질문 스타일 */
+        .ask-btn.visited {
+            opacity: 0.6;
+            border-color: #777;
+            color: #aaa;
+        }
+
+        /* 이동 버튼 스타일 (강조) */
+        .move-btn { 
+            background: rgba(255, 152, 0, 0.2);
+            border: 1px solid #ff9800; 
+            color: #ff9800; 
+            font-weight: bold;
+        }
+        .move-btn:active { background: #ff9800; color: white; }
 
         .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
         .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
@@ -73,6 +108,8 @@
         </div>
     </div>
 
+    <div class="nav-area" id="nav-container"></div>
+    
     <div class="choice-area" id="choice-container"></div>
 
     <div class="control-area">
@@ -84,11 +121,18 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
+        // 구역 데이터 (기존과 동일)
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
                 icon: "🏛️",
-                basePrompt: "너는 1층 로비 도슨트야. 아트밸리 역사와 천주호, 그리고 과학관 전체 구조를 설명해줘.",
+                basePrompt: `
+                    너는 1층 로비 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 포천아트밸리 역사: 1960~90년대 화강암 채석장이었음. 2009년 문화예술 공간으로 재생.
+                    2. 천주호: 채석 후 남은 웅덩이에 샘물과 빗물이 모여 생긴 1급수 호수.
+                    3. 과학관: 우주를 체험하는 곳.
+                `,
                 buttons: [
                     { text: "아트밸리는 원래 뭐하던 곳?", type: "ask", key: "artvalley_history" },
                     { text: "천주호는 어떻게 생겼어?", type: "ask", key: "artvalley_history" },
@@ -98,11 +142,17 @@
             'ex1': {
                 name: "제1전시실: 지구 (1F)",
                 icon: "🌍",
-                basePrompt: "너는 1전시실(지구) 도슨트야. 지구 내부와 판구조론을 설명해줘.",
+                basePrompt: `
+                    너는 1전시실(지구) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 지구 구조: 지각, 맨틀, 외핵(액체), 내핵(고체).
+                    2. 외핵: S파가 통과 못 해서 액체인 걸 알아냄.
+                    3. 판구조론: 지구 표면은 여러 판 조각으로 되어 있음.
+                    4. 달 탄생: 거대 충돌설(테이아 충돌).
+                `,
                 buttons: [
                     { text: "지구 내부는 어떻게 생겼어?", type: "ask", key: "earth_structure_detail" },
                     { text: "판구조론이 뭐야?", type: "ask", key: "plate_tectonics_detail" },
-                    // [수정] "판을 보여줘" 버튼 삭제됨
                     { text: "달은 어떻게 생겨났어?", type: "ask", key: "earth_moon_origin" },
                     { text: "👈 로비로", type: "move", target: "lobby" },
                     { text: "2전시실(2F)로 올라가기 ↗️", type: "move", target: "ex2" }
@@ -111,7 +161,13 @@
             'ex2': {
                 name: "제2전시실: 태양계 (2F)",
                 icon: "🪐",
-                basePrompt: "너는 2전시실(태양계) 도슨트야. 행성들의 특징을 설명해줘.",
+                basePrompt: `
+                    너는 2전시실(태양계) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 행성 순서: 수금지화목토천해. (명왕성 X)
+                    2. 목성: 태양계 최대 행성, 가스 행성.
+                    3. 전시 위치: 행성 모형은 가운데 유리 진열장에 있음.
+                `,
                 buttons: [
                     { text: "행성 특징 알려줘", type: "ask", key: "solar_system_planets" },
                     { text: "지구에서 목성까지 얼마나 걸려?", type: "ask", key: "space_distance" },
@@ -123,7 +179,13 @@
             'rest': {
                 name: "휴게실: 월면차 (2F)",
                 icon: "🚙",
-                basePrompt: "너는 휴게실 도슨트야. 월면차의 바퀴 특징과 지구온 시스템을 설명해줘.",
+                basePrompt: `
+                    너는 휴게실 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 위치: 2전시실과 3전시실 사이.
+                    2. 월면차: 아폴로 15~17호 사용. 바퀴가 '철망'임. 기증품.
+                    3. 지구온: 정면 둥근 스크린. 쓰나미, 비행기 경로 표시.
+                `,
                 buttons: [
                     { text: "월면차 바퀴는 왜 철망이야?", type: "ask", key: "lunar_rover" },
                     { text: "지구온 시스템이 뭐야?", type: "ask", key: "earth_on" },
@@ -135,7 +197,13 @@
             'ex3': {
                 name: "제3전시실: 우주 (2F)",
                 icon: "🚀",
-                basePrompt: "너는 3전시실(우주) 도슨트야. 별의 색깔과 천상열차분야지도를 설명해줘.",
+                basePrompt: `
+                    너는 3전시실(우주) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 별 색깔: 파란색(고온) > 붉은색(저온).
+                    2. 천상열차분야지도: 만원짜리 지폐 뒷면 그림. 국보.
+                    3. 적외선 카메라: 열을 감지함.
+                `,
                 buttons: [
                     { text: "별 색깔은 왜 달라?", type: "ask", key: "star_life_color" },
                     { text: "만원짜리 지폐 뒤에 뭐가 있어?", type: "ask", key: "cheonsang_map" },
@@ -149,14 +217,11 @@
 
         let currentZoneId = 'lobby';
         let idleTimer = null;
-        
-        // [NEW] 방문한(클릭한) 버튼을 기록하는 집합
-        const visitedButtons = new Set();
+        const visitedButtons = new Set(); // 방문한 버튼 추적
 
         const chatBox = document.getElementById('chat-box');
         const charIcon = document.getElementById('char-icon');
 
-        // 지식 검색 함수
         function getExhibitionContent(dataKey) {
             const item = exhibitionData.find(d => d.id === dataKey);
             if (!item) return null;
@@ -169,12 +234,9 @@
             
             addMessage(text, 'user');
 
-            // [NEW] 질문형 버튼이었다면 '방문함'으로 기록하고 버튼 재정렬
             if (dataKey) {
-                // 버튼 텍스트를 찾아서 기록 (dataKey로는 식별이 어려울 수 있어서 text로 기록)
-                // 하지만 여기선 간단히 dataKey+text 조합이나 text 자체를 키로 씀
-                visitedButtons.add(text);
-                renderButtons(zones[currentZoneId].buttons);
+                visitedButtons.add(text); // 방문 기록
+                renderButtons(zones[currentZoneId].buttons); // 버튼 재정렬 (색상 변경 등)
             }
 
             let contextData = "";
@@ -186,9 +248,9 @@
             const finalPrompt = `
                 ${zones[currentZoneId].basePrompt}
                 ${contextData}
-                [규칙]
-                1. 위 '참고 자료' 내용만 사실로 믿어. (지어내기 금지)
-                2. 자료에 없으면 "안내 데스크에 물어봐주세요"라고 해.
+                [절대 규칙]
+                1. 위 '필수 숙지 팩트'와 '참고 자료' 내용만 사실로 믿어.
+                2. 자료에 없으면 "안내 데스크에 문의해주세요"라고 해. (지어내기 금지)
                 3. 답변은 3문장 이내. 친근한 반말(~해, ~야).
                 관람객 질문: "${text}"
             `;
@@ -239,39 +301,45 @@
             document.getElementById('char-icon').innerText = zoneConfig.icon;
             addMessage(`[시스템] ${zoneConfig.name} 도착!`, 'system');
             
-            renderButtons(zoneConfig.buttons); // 버튼 그리기
+            renderButtons(zoneConfig.buttons);
             clearTimeout(idleTimer);
             idleTimer = setTimeout(triggerIdleMessage, 20000);
         };
 
-        // [NEW] 버튼 그리기 및 정렬 함수
+        // [NEW] 버튼 분리 렌더링 (이동 vs 질문)
         function renderButtons(buttons) {
-            const container = document.getElementById('choice-container');
-            container.innerHTML = '';
+            const navContainer = document.getElementById('nav-container');
+            const choiceContainer = document.getElementById('choice-container');
+            
+            navContainer.innerHTML = '';
+            choiceContainer.innerHTML = '';
 
-            // 1. 버튼 분류 (안 본 질문 / 본 질문 / 이동 버튼)
-            const unvisitedAsks = buttons.filter(b => b.type === 'ask' && !visitedButtons.has(b.text));
-            const visitedAsks = buttons.filter(b => b.type === 'ask' && visitedButtons.has(b.text));
-            const moves = buttons.filter(b => b.type === 'move');
-
-            // 2. 순서 조합: [안 본 거] -> [본 거] -> [이동]
-            const sortedButtons = [...unvisitedAsks, ...visitedAsks, ...moves];
-
-            sortedButtons.forEach(btn => {
+            buttons.forEach(btn => {
                 const buttonEl = document.createElement('button');
-                // 클래스 부여: 기본 + (이동버튼?) + (이미본거?)
-                let className = 'choice-btn';
-                if (btn.type === 'move') className += ' move-btn';
-                if (visitedButtons.has(btn.text)) className += ' visited';
-                
-                buttonEl.className = className;
                 buttonEl.innerText = btn.text;
                 
                 buttonEl.onclick = () => {
                     if (btn.type === 'move') setZone(btn.target);
                     else handleUserInput(btn.text, btn.key);
                 };
-                container.appendChild(buttonEl);
+
+                if (btn.type === 'move') {
+                    // 이동 버튼 -> 위쪽 navContainer에 추가
+                    buttonEl.className = 'choice-btn move-btn';
+                    navContainer.appendChild(buttonEl);
+                } else {
+                    // 질문 버튼 -> 아래쪽 choiceContainer에 추가
+                    let className = 'choice-btn ask-btn';
+                    if (visitedButtons.has(btn.text)) className += ' visited'; // 이미 본 질문
+                    buttonEl.className = className;
+                    
+                    // 정렬: 안 본 거(앞) -> 본 거(뒤)
+                    if (visitedButtons.has(btn.text)) {
+                        choiceContainer.appendChild(buttonEl); // 뒤에 추가
+                    } else {
+                        choiceContainer.insertBefore(buttonEl, choiceContainer.firstChild); // 앞에 추가
+                    }
+                }
             });
         }
 
