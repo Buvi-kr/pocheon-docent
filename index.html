@@ -5,34 +5,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>포천아트밸리 천문과학관 AI 도슨트</title>
     <style>
-        /* --- 기본 스타일 (우주 테마) --- */
+        /* 스타일은 기존과 동일 */
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
-        /* 헤더 영역 */
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
-        
-        /* 캐릭터 애니메이션 */
-        .character-img { 
-            width: 55px; height: 55px; 
-            background: white; border-radius: 50%; border: 3px solid #4fc3f7; 
-            display: flex; align-items: center; justify-content: center; font-size: 28px; 
-            animation: float 3s ease-in-out infinite; /* 둥둥 떠다니기 */
-            transition: 0.3s;
-        }
-        .character-img.talking { 
-            border-color: #ffeb3b; 
-            box-shadow: 0 0 15px #ffeb3b; 
-            animation: bounce 0.5s infinite alternate; /* 말할 때 튀기 */
-        }
-        @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-5px); } }
+        .character-img { width: 50px; height: 50px; background: white; border-radius: 50%; border: 2px solid #4fc3f7; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
+        .character-img.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
         @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
 
-        /* 채팅 영역 */
         .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
         .message { padding: 12px 16px; border-radius: 18px; max-width: 85%; line-height: 1.5; font-size: 0.95rem; word-break: break-word; animation: popIn 0.3s; }
         .user-msg { background: #3949ab; align-self: flex-end; border-bottom-right-radius: 4px; color: white; }
@@ -40,7 +25,6 @@
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 선택지 버튼 (가로 스크롤) */
         .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.3); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .choice-area::-webkit-scrollbar { display: none; }
         .choice-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 8px 16px; border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; }
@@ -48,7 +32,6 @@
         .choice-btn.move-btn { border-color: #ff9800; color: #ff9800; }
         .choice-btn.move-btn:active { background: #ff9800; color: white; }
 
-        /* 하단 입력창 */
         .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
         .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
         .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
@@ -87,15 +70,21 @@
     </div>
 
     <script type="module">
-        // 1. 지식 파일 불러오기
         import { exhibitionData } from './knowledge.js';
 
-        // 2. 구역별 설정 및 버튼 정의 (수정된 동선 반영)
+        // ★ [핵심 수정] 각 구역의 basePrompt에 '핵심 족보'를 직접 넣어서 딴소리 방지 ★
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
                 icon: "🏛️",
-                basePrompt: "너는 로비 도슨트야. 아트밸리 역사와 과학관 소개를 친절하게 해줘.",
+                // 아래 prompt에 핵심 내용을 다 넣어서 채팅으로 물어봐도 이것만 참고하게 함
+                basePrompt: `
+                    너는 1층 로비 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 포천아트밸리 역사: 1960~90년대 화강암 채석장이었음. 2009년 폐채석장을 문화예술 공간으로 재생함. (평택 박물관 아님! 송유관 아님!)
+                    2. 천주호: 채석 후 남은 웅덩이에 샘물과 빗물이 모여 생긴 1급수 호수.
+                    3. 과학관: 우주를 체험하는 곳.
+                `,
                 buttons: [
                     { text: "아트밸리는 원래 뭐하던 곳?", type: "ask", key: "artvalley_history" },
                     { text: "천주호는 어떻게 생겼어?", type: "ask", key: "artvalley_history" },
@@ -105,7 +94,14 @@
             'ex1': {
                 name: "제1전시실: 지구 (1F)",
                 icon: "🌍",
-                basePrompt: "너는 1전시실(지구) 도슨트야. 지구 내부와 판구조론을 설명해줘.",
+                basePrompt: `
+                    너는 1전시실(지구) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 지구 구조: 지각, 맨틀, 외핵(액체), 내핵(고체).
+                    2. 외핵: S파가 통과 못 해서 액체인 걸 알아냄.
+                    3. 판구조론: 지구 표면은 여러 판 조각으로 되어 있음.
+                    4. 달 탄생: 거대 충돌설(테이아 충돌)이 정설임.
+                `,
                 buttons: [
                     { text: "지구 내부는 어떻게 생겼어?", type: "ask", key: "earth_structure_detail" },
                     { text: "판구조론이 뭐야?", type: "ask", key: "plate_tectonics_detail" },
@@ -117,7 +113,13 @@
             'ex2': {
                 name: "제2전시실: 태양계 (2F)",
                 icon: "🪐",
-                basePrompt: "너는 2전시실(태양계) 도슨트야. 가운데 진열장에 있는 행성들을 설명해줘.",
+                basePrompt: `
+                    너는 2전시실(태양계) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 행성 순서: 수금지화목토천해. (명왕성은 왜소행성 134340임)
+                    2. 목성: 태양계 최대 행성(지구 11배), 가스 행성.
+                    3. 전시 위치: 행성 모형들은 천장이 아니라 '전시 데스크(유리 진열장)' 안에 있음.
+                `,
                 buttons: [
                     { text: "행성 특징 알려줘", type: "ask", key: "solar_system_planets" },
                     { text: "지구에서 목성까지 얼마나 걸려?", type: "ask", key: "space_distance" },
@@ -129,7 +131,13 @@
             'rest': {
                 name: "휴게실: 월면차 (2F)",
                 icon: "🚙",
-                basePrompt: "너는 휴게실 도슨트야. 정면에 있는 지구온과 구석의 월면차를 설명해줘.",
+                basePrompt: `
+                    너는 휴게실 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 위치: 2전시실과 3전시실 사이.
+                    2. 월면차: 아폴로 15~17호가 쓴 전기차. 바퀴가 '철망'임(공기 타이어 아님). 기증품임.
+                    3. 지구온: 정면에 있는 둥근 스크린. 쓰나미, 비행기 경로 보여줌.
+                `,
                 buttons: [
                     { text: "월면차 바퀴는 왜 철망이야?", type: "ask", key: "lunar_rover" },
                     { text: "지구온 시스템이 뭐야?", type: "ask", key: "earth_on" },
@@ -141,7 +149,13 @@
             'ex3': {
                 name: "제3전시실: 우주 (2F)",
                 icon: "🚀",
-                basePrompt: "너는 3전시실 도슨트야. 별과 우주 기술을 설명해줘.",
+                basePrompt: `
+                    너는 3전시실(우주) 도슨트야.
+                    [필수 숙지 팩트]
+                    1. 별 색깔: 파란색(고온) > 붉은색(저온).
+                    2. 천상열차분야지도: 만원짜리 지폐 뒷면 배경 그림. 돌에 새긴 천문도.
+                    3. 적외선 카메라: 열을 감지함. (체험존 있음)
+                `,
                 buttons: [
                     { text: "별 색깔은 왜 달라?", type: "ask", key: "star_life_color" },
                     { text: "만원짜리 지폐 뒤에 뭐가 있어?", type: "ask", key: "cheonsang_map" },
@@ -154,54 +168,51 @@
         };
 
         let currentZoneId = 'lobby';
-        let idleTimer = null; // 심심함 타이머
+        let idleTimer = null;
 
         const chatBox = document.getElementById('chat-box');
         const charIcon = document.getElementById('char-icon');
 
-        // --- 3. 핵심 로직 구현 ---
-
-        // (1) 지식 파일에서 데이터 찾기 함수
+        // 지식 파일에서 데이터 찾기
         function getExhibitionContent(dataKey) {
             const item = exhibitionData.find(d => d.id === dataKey);
             if (!item) return null;
             return `
-            [전시물 제목]: ${item.title}
-            [기본 설명]: ${item.description.basic}
-            [심화 설명]: ${item.description.advanced}
-            [핵심 팩트]: ${item.facts ? item.facts.join(', ') : '없음'}
+            [상세 자료]
+            제목: ${item.title}
+            설명: ${item.description.basic}
+            팩트: ${item.facts ? item.facts.join(', ') : ''}
             `;
         }
 
-        // (2) 질문 처리 및 AI 호출 (가장 중요한 부분!)
         async function handleUserInput(text, dataKey = null) {
-            resetIdleTimer();
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(triggerIdleMessage, 20000); // 20초 리셋
+            
             addMessage(text, 'user');
 
             let contextData = "";
             
-            // 데이터가 있으면 가져와서 프롬프트에 넣음
+            // 1. 버튼 클릭 (상세 데이터 로드)
             if (dataKey) {
                 const foundData = getExhibitionContent(dataKey);
-                if (foundData) {
-                    contextData = `[참고 자료] ${foundData}`;
-                }
-            } else {
-                // 없으면 일반 대화
-                contextData = `관람객 질문: "${text}"`;
-            }
-
-            // ★ 강력한 시스템 프롬프트 (거짓말 금지 & 짧게 말하기) ★
+                if (foundData) contextData = foundData;
+            } 
+            
+            // 2. ★ 핵심: 직접 타이핑해도 기본 팩트를 참고하도록 설정 ★
             const finalPrompt = `
                 ${zones[currentZoneId].basePrompt}
                 
-                [절대 지켜야 할 규칙]
-                1. **무조건 3문장 이내**로 짧고 핵심만 말해. (가장 중요!)
-                2. 스마트폰 채팅이니까 긴 글은 금지야.
-                3. 제공된 [참고 자료]에 있는 내용만 사실로 믿어. 자료에 없으면 "안내 데스크에 물어봐주세요"라고 해. (지어내기 절대 금지)
-                4. 말투는 마스코트(래비, 도기, 캐티)처럼 귀엽고 친근한 반말(~해, ~야)을 써.
-
+                [추가 참고 자료]
                 ${contextData}
+
+                [절대 규칙]
+                1. 위 '필수 숙지 팩트'와 '추가 참고 자료'에 없는 내용은 **절대 지어내지 마.**
+                2. 모르면 "자료에 없는 내용이라 잘 모르겠어. 안내 데스크에 물어봐줄래?"라고 솔직히 말해.
+                3. 답변은 3문장 이내로 짧게.
+                4. 말투: 래비, 도기, 캐티처럼 귀엽게 반말(~해, ~야).
+                
+                관람객 질문: "${text}"
             `;
 
             document.getElementById('status-text').innerText = "생각하는 중...";
@@ -213,56 +224,8 @@
             speak(reply);
         }
 
-        // (3) 구역 변경 함수
-        window.setZone = (zoneId) => {
-            currentZoneId = zoneId;
-            const zoneConfig = zones[zoneId];
-            
-            // UI 업데이트
-            document.getElementById('zone-name').innerText = zoneConfig.name;
-            document.getElementById('char-icon').innerText = zoneConfig.icon;
-            
-            addMessage(`[시스템] ${zoneConfig.name} 도착!`, 'system');
-            
-            // 버튼 다시 그리기
-            const container = document.getElementById('choice-container');
-            container.innerHTML = '';
-            zoneConfig.buttons.forEach(btn => {
-                const buttonEl = document.createElement('button');
-                buttonEl.className = `choice-btn ${btn.type === 'move' ? 'move-btn' : ''}`;
-                buttonEl.innerText = btn.text;
-                buttonEl.onclick = () => {
-                    if (btn.type === 'move') {
-                        setZone(btn.target);
-                    } else {
-                        handleUserInput(btn.text, btn.key);
-                    }
-                };
-                container.appendChild(buttonEl);
-            });
-
-            resetIdleTimer();
-        };
-
-        // (4) 심심할 때 말 거는 기능
-        function resetIdleTimer() {
-            clearTimeout(idleTimer);
-            idleTimer = setTimeout(triggerIdleMessage, 20000); // 20초 후 실행
-        }
-
-        function triggerIdleMessage() {
-            // 구역별 심심할 때 멘트 (간단 버전)
-            const idleMents = [
-                "궁금한 게 있으면 버튼을 눌러봐!",
-                "천문과학관 재밌지 않아?",
-                "혹시 다리 아프면 좀 쉬었다 가자."
-            ];
-            const randomMent = idleMents[Math.floor(Math.random() * idleMents.length)];
-            addMessage(randomMent, 'ai');
-            speak(randomMent);
-        }
-
-        // (5) API 호출 & TTS & UI 유틸
+        // ... (나머지 callGeminiAPI, speak, setZone 등은 기존 코드와 동일) ...
+        
         async function callGeminiAPI(text, systemPrompt) {
             try {
                 const response = await fetch('/api/chat', {
@@ -283,7 +246,6 @@
             utterance.onend = () => {
                 charIcon.classList.remove('talking');
                 document.getElementById('status-text').innerText = "같이 둘러보자!";
-                resetIdleTimer();
             };
         }
 
@@ -296,16 +258,44 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // (6) 이벤트 리스너 및 초기화
+        window.setZone = (zoneId) => {
+            currentZoneId = zoneId;
+            const zoneConfig = zones[zoneId];
+            document.getElementById('zone-name').innerText = zoneConfig.name;
+            document.getElementById('char-icon').innerText = zoneConfig.icon;
+            addMessage(`[시스템] ${zoneConfig.name} 도착!`, 'system');
+            
+            const container = document.getElementById('choice-container');
+            container.innerHTML = '';
+            zoneConfig.buttons.forEach(btn => {
+                const buttonEl = document.createElement('button');
+                buttonEl.className = `choice-btn ${btn.type === 'move' ? 'move-btn' : ''}`;
+                buttonEl.innerText = btn.text;
+                buttonEl.onclick = () => {
+                    if (btn.type === 'move') setZone(btn.target);
+                    else handleUserInput(btn.text, btn.key);
+                };
+                container.appendChild(buttonEl);
+            });
+            clearTimeout(idleTimer);
+            idleTimer = setTimeout(triggerIdleMessage, 20000);
+        };
+
+        function triggerIdleMessage() {
+            // 심심할 때 멘트 (간단 예시)
+            const idleMents = ["궁금한 거 없어?", "버튼을 눌러봐!", "재밌게 보고 있어?"];
+            const randomMent = idleMents[Math.floor(Math.random() * idleMents.length)];
+            addMessage(randomMent, 'ai');
+            speak(randomMent);
+        }
+
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
         sendBtn.addEventListener('click', () => { if(textInput.value) { handleUserInput(textInput.value); textInput.value=''; }});
         textInput.addEventListener('keypress', (e) => { if (e.key === 'Enter') sendBtn.click(); });
         
-        document.body.addEventListener('click', resetIdleTimer);
-        document.body.addEventListener('touchstart', resetIdleTimer);
-
-        // 음성인식
+        document.body.addEventListener('click', () => { clearTimeout(idleTimer); idleTimer = setTimeout(triggerIdleMessage, 20000); });
+        
         const micBtn = document.getElementById('mic-btn');
         const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
         if(SpeechRecognition) {
@@ -316,7 +306,6 @@
             recognition.onspeechend = () => micBtn.classList.remove('listening');
         } else { micBtn.style.display = 'none'; }
 
-        // 시작!
         window.onload = () => { setZone('lobby'); };
     </script>
 </body>
