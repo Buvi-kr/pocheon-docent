@@ -10,12 +10,11 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
 
     <style>
-        /* --- [핵심 수정 1] 높이 단위를 dvh로 변경하여 네비게이션 바 문제 해결 --- */
+        /* --- 기본 스타일 (모바일 네비게이션바 대응 100dvh) --- */
         body { 
             margin: 0; 
             display: flex; 
             flex-direction: column; 
-            /* 100vh 대신 100dvh 사용 (모바일 상하단 바 제외한 실제 높이) */
             height: 100vh; 
             height: 100dvh; 
             background: #0b0c15; 
@@ -29,21 +28,19 @@
         
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
         
-        /* 캐릭터 영역: Live2D 캔버스 */
+        /* Live2D 캔버스 */
         #live2d-canvas {
-            width: 60px; height: 60px;
-            /* 디버깅용: 캔버스 영역이 보이도록 임시 배경색 */
-            /* background: rgba(255, 255, 255, 0.1); */
+            width: 80px; height: 80px;
         }
 
-        /* [비상용] Live2D 실패 시 보일 캐릭터 이미지 스타일 */
+        /* [비상용] Live2D 로딩 전/실패 시 보일 캐릭터 */
         .character-fallback {
             width: 50px; height: 50px; 
             background: white; border-radius: 50%; border: 2px solid #4fc3f7; 
-            display: none; /* 기본은 숨김 */
+            display: none; 
             align-items: center; justify-content: center; font-size: 24px;
         }
-        .character-fallback.show { display: flex; } /* 실패 시 보여줌 */
+        .character-fallback.show { display: flex; }
         .character-fallback.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
         @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
 
@@ -68,11 +65,10 @@
         .move-btn { background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; font-weight: bold; }
         .move-btn:active { background: #ff9800; color: white; }
 
-        /* --- [핵심 수정 2] 하단 컨트롤 영역 안전하게 띄우기 --- */
+        /* 하단 컨트롤 영역 (녹음 버튼 가림 방지) */
         .control-area { 
             flex: 0 0 auto; 
             padding: 10px 15px; 
-            /* 하단 패딩을 아주 넉넉하게 줌 (내비게이션 바 고려) */
             padding-bottom: max(60px, env(safe-area-inset-bottom)); 
             background: #121212; 
             display: flex; 
@@ -95,7 +91,7 @@
 
     <div class="header-area">
         <canvas id="live2d-canvas"></canvas>
-        <div id="fallback-char" class="character-fallback">🐰</div>
+        <div id="fallback-char" class="character-fallback show">🐰</div>
         
         <div class="header-text">
             <h1 id="zone-name">로비</h1>
@@ -123,8 +119,10 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- Live2D 및 캐릭터 제어 로직 ---
-        const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/hiyori/hiyori.model3.json';
+        // --- [핵심] Live2D 모델 경로 설정 ---
+        // 주임님이 올려주신 폴더 구조와 파일명(대문자 H)에 맞춘 경로입니다.
+        const modelUrl = './models/hiyori/Hiyori.model3.json';
+        
         let live2dModel = null;
         let isLive2DLoaded = false;
         
@@ -133,7 +131,6 @@
 
         async function initLive2D() {
             try {
-                // Live2D 라이브러리가 제대로 로드됐는지 체크
                 if (!window.PIXI || !PIXI.live2d) {
                     throw new Error("Live2D Library not loaded");
                 }
@@ -145,45 +142,51 @@
                     width: 300, height: 300
                 });
 
-                console.log("Live2D 모델 로딩 시도...");
+                console.log("Live2D 모델 로딩 시도:", modelUrl);
                 live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
                 
-                // 로드 성공 시
+                // 로드 성공 시 설정
                 live2dModel.scale.set(0.12);
                 live2dModel.x = 20;
                 live2dModel.y = 30;
+                
+                // 모델을 캔버스에 추가하고 토끼 아이콘 숨기기
                 app.stage.addChild(live2dModel);
+                fallbackEl.classList.remove('show');
+                fallbackEl.style.display = 'none';
+                
+                // 등장 모션
                 live2dModel.motion('TapBody');
                 
                 isLive2DLoaded = true;
                 console.log("Live2D 로드 성공!");
             } catch (error) {
-                console.error("Live2D 로드 실패 (Fallback 모드 전환):", error);
-                // [핵심] 실패 시 캔버스 숨기고 토끼 이모지 보여줌
+                console.error("Live2D 로드 실패 (Fallback 유지):", error);
+                // 실패해도 토끼가 있으니 앱은 멈추지 않습니다.
                 canvasEl.style.display = 'none';
                 fallbackEl.classList.add('show');
+                fallbackEl.style.display = 'flex';
                 isLive2DLoaded = false;
-                document.getElementById('status-text').innerText = "통신 상태가 안 좋아요 (2D 모드)";
             }
         }
         
-        // 페이지 로드 시 실행
+        // 페이지 로드 시 Live2D 실행
         initLive2D();
 
-        // 립싱크 및 말하기 함수 통합
+        // --- 말하기 & 립싱크 로직 ---
         function speak(text) {
             let talkingInterval = null;
             
-            // 1. Live2D가 로드된 경우 (입모양 제어)
+            // 1. Live2D (입 뻐끔거리기)
             if (isLive2DLoaded && live2dModel) {
                 talkingInterval = setInterval(() => {
                     const randomOpen = Math.random() * 0.8 + 0.2;
                     try {
                         live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen);
-                    } catch(e) {} // 에러 무시
+                    } catch(e) {} 
                 }, 100);
             } 
-            // 2. Live2D 실패 시 (토끼 이모지 통통 튀기기)
+            // 2. 토끼 모드 (통통 튀기기)
             else {
                 fallbackEl.classList.add('talking');
             }
@@ -207,7 +210,7 @@
         }
 
 
-        // --- 기존 로직 (Knowledge & Chat) ---
+        // --- [아래는 기존 로직 유지] ---
         const basicInfo = `
             [천문과학관 기본 정보]
             1. 정체: 포천아트밸리(폐채석장을 문화예술공간으로 재생) 내부에 위치한 과학관.
