@@ -4,16 +4,25 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>포천아트밸리 천문과학관 AI 도슨트</title>
+    
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2d.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.1/dist/browser/pixi.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+
     <style>
-        /* --- 기본 스타일 (유지) --- */
+        /* --- 기본 스타일 --- */
         body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
-        .character-img { width: 50px; height: 50px; background: white; border-radius: 50%; border: 2px solid #4fc3f7; display: flex; align-items: center; justify-content: center; font-size: 24px; transition: 0.3s; }
-        .character-img.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
-        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+        
+        /* [변경] 기존 동그라미 대신 캔버스 영역 잡기 */
+        #live2d-canvas {
+            width: 80px; /* 캐릭터 크기 */
+            height: 80px;
+            /* 배경 없앰 (투명) */
+        }
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
@@ -36,7 +45,7 @@
         .ask-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; }
         .ask-btn:active { background: #4fc3f7; color: black; }
         
-        /* [수정됨] 방문한 버튼: 위치 이동 없이 색상만 흐리게 */
+        /* 방문한 버튼 스타일 */
         .ask-btn.visited { 
             opacity: 0.4; 
             border-color: #555; 
@@ -47,7 +56,19 @@
         .move-btn { background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; font-weight: bold; }
         .move-btn:active { background: #ff9800; color: white; }
 
-        .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
+        /* [수정됨] 컨트롤 영역 하단 여백 추가 (모바일 대응) */
+        .control-area { 
+            flex: 0 0 auto; 
+            padding: 10px 15px; 
+            /* 하단 여백을 넉넉하게 40px + safe-area 추가 */
+            padding-bottom: calc(40px + env(safe-area-inset-bottom)); 
+            background: #121212; 
+            display: flex; 
+            align-items: center; 
+            gap: 10px; 
+            border-top: 1px solid #333; 
+            z-index: 20; 
+        }
         .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
         .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
         #mic-btn { background: #f44336; }
@@ -61,7 +82,7 @@
     <div class="stars"></div>
 
     <div class="header-area">
-        <div class="character-img" id="char-icon">🐰</div>
+        <canvas id="live2d-canvas"></canvas>
         <div class="header-text">
             <h1 id="zone-name">로비</h1>
             <p id="status-text">같이 둘러보자!</p>
@@ -88,16 +109,59 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // 기본 상식 (Global Context)
+        // --- Live2D 설정 시작 ---
+        // [중요] 무료 샘플 모델 URL (Hiyori - 테스트용)
+        // 나중에 주임님이 구하신 '포우리' 모델 경로로 바꾸면 됩니다.
+        const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/hiyori/hiyori.model3.json';
+        let live2dModel = null;
+
+        async function initLive2D() {
+            try {
+                const app = new PIXI.Application({
+                    view: document.getElementById('live2d-canvas'),
+                    autoStart: true,
+                    backgroundAlpha: 0, // 배경 투명
+                    width: 300,
+                    height: 300
+                });
+
+                // 모델 로드
+                live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
+                
+                // 위치 및 크기 조정
+                live2dModel.scale.set(0.12); // 크기 조절 (0.1 ~ 0.2 사이로 조정해보세요)
+                live2dModel.x = 20;
+                live2dModel.y = 30;
+
+                app.stage.addChild(live2dModel);
+                
+                // 랜덤 동작 한 번 실행 (살아있다는 느낌)
+                live2dModel.motion('TapBody');
+                
+                console.log("Live2D 모델 로드 완료!");
+            } catch (error) {
+                console.error("Live2D 로드 실패:", error);
+                document.getElementById('status-text').innerText = "캐릭터 불러오기 실패 ㅠ";
+            }
+        }
+        
+        // 페이지 로드 시 Live2D 실행
+        initLive2D();
+        // --- Live2D 설정 끝 ---
+
+
+        // 구역 데이터 및 로직 (기존 코드 유지)
         const basicInfo = `
             [천문과학관 기본 정보]
-            1. 위치: 포천아트밸리(과거 채석장을 문화예술공간으로 재생) 내부에 위치.
-            2. 동선: 1층(로비, 1전시실) -> 2층(2전시실 -> 휴게실 -> 3전시실) -> 3층(투영실, 관측실).
-            3. 천주호: 채석 후 남은 웅덩이에 생긴 1급수 호수.
-            4. 마스코트: 래비(토끼), 도기(강아지), 캐티(고양이).
+            1. 정체: 포천아트밸리(폐채석장을 문화예술공간으로 재생) 내부에 위치한 과학관.
+            2. 동선 안내:
+               - 1층: 로비(안내데스크), 제1전시실(지구)
+               - 2층: 제2전시실(태양계) -> 휴게실(월면차, 지구온) -> 제3전시실(우주)
+               - 3층/옥상: 천체투영실, 천체관측실
+            3. 마스코트: 래비(토끼), 도기(강아지), 캐티(고양이). 말투는 "안녕! ~야" 하는 친근한 반말.
+            4. 주의: 이곳은 과거(1960~90년대) 화강암 채석장이었음.
         `;
 
-        // 구역 데이터
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -108,15 +172,13 @@
                         text: "아트밸리는 원래 뭐하던 곳?", type: "chat", 
                         answers: [
                             "여기는 원래 1960~90년대에 화강암을 캐던 채석장이었어! ⛏️ 2009년에 멋진 예술 공원으로 변신했지.",
-                            "믿기지 않겠지만, 옛날엔 돌 캐는 소리로 시끄러운 곳이었대. 지금은 이렇게 아름다운 천주호와 과학관이 있어. ✨",
-                            "버려진 폐채석장을 되살린 기적의 공간이야. 깎아지른 절벽을 봐, 정말 멋지지?"
+                            "믿기지 않겠지만, 옛날엔 돌 캐는 소리로 시끄러운 곳이었대. 지금은 이렇게 아름다운 천주호와 과학관이 있어. ✨"
                         ]
                     },
                     { 
                         text: "천주호는 어떻게 생겼어?", type: "chat", 
                         answers: [
-                            "채석하고 남은 웅덩이에 샘물과 빗물이 고여서 생긴 호수야. 1급수라 가재도 산대! 🦞",
-                            "사람이 파낸 웅덩이에 자연이 물을 채워줬어. 에메랄드빛 물색깔이 정말 신비롭지? ✨"
+                            "채석하고 남은 웅덩이에 샘물과 빗물이 고여서 생긴 호수야. 1급수라 가재도 산대! 🦞"
                         ]
                     },
                     { text: "1전시실(우측)로 이동 👉", type: "move", target: "ex1" }
@@ -178,9 +240,10 @@
         const visitedButtons = new Set(); 
 
         const chatBox = document.getElementById('chat-box');
-        const charIcon = document.getElementById('char-icon');
+        
+        // [변경] 기존 char-icon 제거됨 -> Canvas로 대체되었으므로 관련 코드 제거/수정
+        // const charIcon = document.getElementById('char-icon'); 
 
-        // 지식 검색
         function getExhibitionContent(dataKey) {
             const item = exhibitionData.find(d => d.id === dataKey);
             if (!item) return null;
@@ -193,7 +256,6 @@
             
             addMessage(text, 'user');
 
-            // 1. 랜덤 답변 처리
             if (answers && Array.isArray(answers)) {
                 if(dataKey || text) {
                     visitedButtons.add(text);
@@ -204,7 +266,6 @@
                 return;
             }
 
-            // 2. 버튼 클릭 시 스타일 업데이트 (재정렬 안함!)
             if (dataKey || text) {
                 visitedButtons.add(text);
                 renderButtons(zones[currentZoneId].buttons);
@@ -216,7 +277,6 @@
                 if (foundData) contextData = foundData;
             }
 
-            // 3. AI 프롬프트 (엄격한 규칙 적용)
             const finalPrompt = `
                 역할: ${zones[currentZoneId].basePrompt}
                 
@@ -224,12 +284,10 @@
                 ${contextData}
 
                 [절대 답변 규칙]
-                1. **팩트 체크**: 위 [기본 정보]와 [참고 자료] 내용만 사실로 믿어.
-                2. **거짓말 금지**: 자료에 없는 내용(김치찌개, 엉뚱한 역사 등)은 "자료에 없어서 잘 모르겠어"라고 답해.
-                3. **길이 조절**: 
-                   - 단순 질문은 **3문장 이내**.
-                   - "특징 알려줘" 같은 나열형 질문은 **번호나 점(•)을 써서 정리**.
-                4. 말투: 래비, 도기, 캐티처럼 귀엽고 친근한 반말(~해, ~야).
+                1. 팩트 체크: 위 [기본 정보]와 [참고 자료] 내용만 사실로 믿어.
+                2. 거짓말 금지: 자료에 없는 내용은 모른다고 답해.
+                3. 길이 조절: 3문장 이내. 나열형은 점(•)으로 정리.
+                4. 말투: 래비, 도기, 캐티처럼 귀엽고 친근한 반말.
                 
                 관람객 질문: "${text}"
             `;
@@ -254,13 +312,32 @@
         }
 
         function speak(text) {
-            charIcon.classList.add('talking');
+            // [변경] 기존 CSS 애니메이션 제거
+            // charIcon.classList.add('talking'); 
+            
+            // [NEW] Live2D 입모양 움직이기 (간단 버전: 랜덤하게 뻐끔거림)
+            let talkingInterval = null;
+            if (live2dModel) {
+                // 0.1초마다 입을 랜덤하게 벌렸다 다물었다 함
+                talkingInterval = setInterval(() => {
+                    const randomOpen = Math.random() * 0.8 + 0.2; // 0.2 ~ 1.0
+                    // Live2D 입 파라미터 제어
+                    live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen);
+                }, 100);
+            }
+
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ko-KR';
             window.speechSynthesis.speak(utterance);
+            
             utterance.onend = () => {
-                charIcon.classList.remove('talking');
                 document.getElementById('status-text').innerText = "같이 둘러보자!";
+                
+                // [NEW] 말 끝나면 입 다물기
+                if (talkingInterval) {
+                    clearInterval(talkingInterval);
+                    if(live2dModel) live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
+                }
             };
         }
 
@@ -274,7 +351,6 @@
             chatBox.scrollTop = chatBox.scrollHeight;
         }
 
-        // [UI 로직 수정] 버튼 재정렬 없이 제자리에서 스타일만 변경
         function renderButtons(buttons) {
             const navContainer = document.getElementById('nav-container');
             const choiceContainer = document.getElementById('choice-container');
@@ -292,16 +368,13 @@
                 };
 
                 if (btn.type === 'move') {
-                    // 이동 버튼
                     buttonEl.className = 'choice-btn move-btn';
                     navContainer.appendChild(buttonEl);
                 } else {
-                    // 질문 버튼 (순서 안 바꿈, 스타일만 체크)
                     let className = 'choice-btn ask-btn';
-                    if (visitedButtons.has(btn.text)) className += ' visited'; // 이미 본 질문
+                    if (visitedButtons.has(btn.text)) className += ' visited';
                     buttonEl.className = className;
-                    
-                    choiceContainer.appendChild(buttonEl); // 그냥 순서대로 추가
+                    choiceContainer.appendChild(buttonEl);
                 }
             });
         }
@@ -310,7 +383,7 @@
             currentZoneId = zoneId;
             const zoneConfig = zones[zoneId];
             document.getElementById('zone-name').innerText = zoneConfig.name;
-            document.getElementById('char-icon').innerText = zoneConfig.icon;
+            // document.getElementById('char-icon').innerText = zoneConfig.icon; // 제거됨
             addMessage(`[시스템] ${zoneConfig.name} 도착!`, 'system');
             
             renderButtons(zoneConfig.buttons);
