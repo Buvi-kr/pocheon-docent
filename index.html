@@ -2,177 +2,117 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Live2D Core Test</title>
+    <title>Live2D Cubism 2 Test</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script src="https://cdn.jsdelivr.net/gh/datsver/live2d-widget@latest/live2d.min.js"></script>
-    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.2/browser/pixi.min.js"></script>
+
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
 
     <style>
-        body { margin: 0; background-color: #222; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
+        body { margin: 0; background-color: #333; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; }
+        #canvas-container { position: relative; width: 100vw; height: 100vh; }
+        canvas { display: block; width: 100%; height: 100%; }
         
-        /* 캔버스 영역 */
-        #canvas-container {
-            width: 100vw;
-            height: 80vh;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background: radial-gradient(circle, #333 0%, #000 100%); /* 배경 단순화 */
-        }
-        canvas { display: block; }
-
-        /* 컨트롤 패널 */
-        .controls {
-            height: 20vh;
-            width: 100%;
-            background: #111;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 20px;
-            z-index: 10;
-            border-top: 1px solid #444;
-        }
-
-        button {
-            padding: 15px 25px;
-            font-size: 16px;
-            cursor: pointer;
-            background: #4fc3f7;
-            border: none;
-            border-radius: 8px;
-            font-weight: bold;
-            color: #000;
-            transition: 0.2s;
-        }
-        button:active { transform: scale(0.95); background: #29b6f6; }
-        button.secondary { background: #ffeb3b; }
-
-        #status { position: absolute; top: 10px; left: 10px; color: lime; font-family: monospace; background: rgba(0,0,0,0.5); padding: 5px; }
+        .btn-area { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
+        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; background: #4fc3f7; font-weight: bold; }
+        button:active { background: #039be5; color: white; }
     </style>
 </head>
 <body>
 
-    <div id="status">상태: 초기화 중...</div>
-
     <div id="canvas-container">
         <canvas id="canvas"></canvas>
-    </div>
-
-    <div class="controls">
-        <button onclick="testMotion()">💃 모션 테스트</button>
-        <button class="secondary" onclick="testSpeak()">💬 말하기 테스트</button>
+        
+        <div class="btn-area">
+            <button onclick="testMotion()">👋 인사하기</button>
+            <button onclick="testSpeak()">💬 말하기</button>
+        </div>
     </div>
 
     <script>
-        // --- 설정 영역 ---
-        // 사용할 모델 주소 (히요리)
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
+        // [중요] Cubism 2 모델 파일 (.model.json 으로 끝남)
+        // 시즈쿠(Shizuku) - 가장 안정적인 국민 예제 모델
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json';
 
-        // 전역 변수
         let app, model;
-        const statusEl = document.getElementById('status');
 
-        // 1. 초기화 함수
         async function init() {
-            try {
-                // Pixi 앱 생성
-                app = new PIXI.Application({
-                    view: document.getElementById('canvas'),
-                    autoStart: true,
-                    resizeTo: document.getElementById('canvas-container'), // 컨테이너 크기에 맞춤
-                    backgroundAlpha: 0 // 투명 배경
-                });
+            // Pixi Application 생성
+            app = new PIXI.Application({
+                view: document.getElementById('canvas'),
+                autoStart: true,
+                resizeTo: window,
+                backgroundAlpha: 0
+            });
 
-                statusEl.innerText = "상태: 모델 다운로드 중...";
+            console.log("모델 로딩 시작...");
 
-                // Live2D 모델 로드 (한 줄로 끝!)
-                model = await PIXI.live2d.Live2DModel.from(MODEL_URL);
+            // 모델 로드
+            model = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                // 모델 배치 (화면 중앙)
-                model.anchor.set(0.5);
-                model.x = app.screen.width / 2;
-                model.y = app.screen.height / 2 + 100; // 약간 아래로
-                model.scale.set(0.25); // 크기 조절 (화면에 맞게 조절 필요)
+            // 위치 잡기
+            model.anchor.set(0.5);
+            model.x = window.innerWidth / 2;
+            model.y = window.innerHeight / 2 + 50;
+            model.scale.set(0.3); // 시즈쿠는 커서 좀 줄여야 함
 
-                // 마우스 상호작용 활성화
-                model.interactive = true;
+            // 상호작용 설정
+            model.interactive = true;
+            model.on('pointertap', () => {
+                model.motion('tap_body'); // 시즈쿠 모델의 모션 이름
+            });
 
-                // 클릭 이벤트 (몸 터치 시 반응)
-                model.on('pointertap', () => {
-                    model.motion('TapBody');
-                    console.log("터치됨!");
-                });
-
-                app.stage.addChild(model);
-                
-                statusEl.innerText = "상태: 준비 완료 (터치 가능)";
-                console.log("모델 로드 성공:", model);
-
-            } catch (err) {
-                console.error(err);
-                statusEl.innerText = "에러 발생! 콘솔 확인 필요";
-                statusEl.style.color = "red";
-            }
+            app.stage.addChild(model);
+            console.log("모델 로드 완료!");
         }
 
         init();
 
-
-        // 2. 모션 테스트 함수
+        // 모션 테스트 (시즈쿠 전용 모션 이름 사용)
         function testMotion() {
-            if (!model) return;
-            // 모델이 가진 모션 중 하나를 강제 재생
-            // 'TapBody'는 히요리 모델에 내장된 모션 이름입니다.
-            model.motion('TapBody'); 
-            statusEl.innerText = "상태: 모션 재생 중";
+            if(model) {
+                // 시즈쿠가 가진 모션 그룹 중 하나를 랜덤 재생
+                model.motion('tap_body'); 
+            }
         }
 
-
-        // 3. 말하기(입모양) 테스트 함수
-        let talkingInterval;
+        // 말하기 테스트
         function testSpeak() {
-            if (!model) return;
-
-            statusEl.innerText = "상태: 말하는 중...";
-            
-            // TTS 실행
-            const text = "안녕하세요! Live2D 모델 구현 테스트 중입니다.";
+            const text = "안녕하세요! 저는 시즈쿠입니다.";
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = "ko-KR";
             window.speechSynthesis.speak(utterance);
 
-            // 입 벙긋거리는 애니메이션 (수동 구현)
-            if (talkingInterval) clearInterval(talkingInterval);
-            
-            talkingInterval = setInterval(() => {
-                // 입 벌리기 파라미터 (0.0 ~ 1.0) 랜덤 조절
-                const val = Math.random(); 
-                try {
-                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val);
-                } catch(e) {}
+            // 입 벙긋거리기
+            let interval = setInterval(() => {
+                if(model) {
+                    // Cubism 2는 파라미터 이름이 조금 다름 (PARAM_MOUTH_OPEN_Y)
+                    // 하지만 플러그인이 알아서 매핑해주기도 함. 안전하게 직접 지정.
+                    try {
+                        model.internalModel.coreModel.setParamFloat('PARAM_MOUTH_OPEN_Y', Math.random());
+                    } catch(e) {}
+                }
             }, 100);
 
-            // 말 끝나면 입 다물기
             utterance.onend = () => {
-                clearInterval(talkingInterval);
-                try {
-                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
-                } catch(e) {}
-                statusEl.innerText = "상태: 대기 중";
+                clearInterval(interval);
+                if(model) {
+                    try {
+                        model.internalModel.coreModel.setParamFloat('PARAM_MOUTH_OPEN_Y', 0);
+                    } catch(e) {}
+                }
             };
         }
 
-        // 창 크기 조절 대응
         window.onresize = () => {
-            if(app && model) {
-                model.x = app.screen.width / 2;
-                model.y = app.screen.height / 2 + 100;
+            if (model) {
+                model.x = window.innerWidth / 2;
+                model.y = window.innerHeight / 2 + 50;
             }
-        };
+        }
     </script>
 </body>
 </html>
