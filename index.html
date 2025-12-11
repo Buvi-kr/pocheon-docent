@@ -7,7 +7,7 @@
     
     <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/pixi.js@6.5.1/dist/browser/pixi.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
 
     <style>
         /* 스타일은 기존과 동일 */
@@ -42,7 +42,7 @@
         .choice-area::-webkit-scrollbar { display: none; }
         .choice-btn { border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; padding: 8px 16px; }
         .ask-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; }
-        .ask-btn:active { background: #4fc3f7; color: black; }
+        .ask-btn.active { background: #4fc3f7; color: black; }
         .ask-btn.visited { opacity: 0.4; border-color: #555; color: #888; background: rgba(0,0,0,0.1); }
         .move-btn { background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; font-weight: bold; }
         .move-btn:active { background: #ff9800; color: white; }
@@ -86,6 +86,7 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
+        // --- Live2D 설정 ---
         const modelUrl = './models/hiyori/Hiyori.model3.json';
         const canvasEl = document.getElementById('live2d-canvas');
         const fallbackEl = document.getElementById('fallback-char');
@@ -94,6 +95,11 @@
 
         async function initLive2D() {
             try {
+                // 0. 라이브러리 로드 체크
+                if (!window.PIXI || !PIXI.live2d) {
+                    throw new Error("Live2D 플러그인이 아직 로드되지 않았습니다.");
+                }
+
                 const app = new PIXI.Application({
                     view: canvasEl,
                     autoStart: true,
@@ -101,57 +107,82 @@
                     width: 300, height: 300
                 });
 
+                // [중요] Cubism 4 Core 명시적 등록 (안전장치)
+                window.PIXI.live2d.Live2DModel.registerTicker(PIXI.Ticker);
+
                 console.log("Live2D 모델 로딩 시도:", modelUrl);
+                
+                // 1. 모델 로드 (여기서 에러가 나면 catch로 갑니다)
                 live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
                 
+                // 2. 화면 배치
                 live2dModel.scale.set(0.12);
                 live2dModel.x = 20;
                 live2dModel.y = 30;
                 
                 app.stage.addChild(live2dModel);
+                
+                // 3. 성공 시 토끼 숨기기
                 fallbackEl.classList.remove('show');
                 fallbackEl.style.display = 'none';
                 
+                // 4. 동작 테스트
                 try {
                     live2dModel.motion('TapBody');
                 } catch(e) {}
                 
                 isLive2DLoaded = true;
                 console.log("Live2D 로드 성공!");
+
             } catch (error) {
-                console.error("Live2D 로드 실패:", error);
+                console.error("Live2D 로드 실패 (Fallback 모드 작동):", error);
+                
+                // 에러 발생 시 토끼 모드로 전환
                 canvasEl.style.display = 'none';
                 fallbackEl.classList.add('show');
                 fallbackEl.style.display = 'flex';
                 isLive2DLoaded = false;
+                document.getElementById('status-text').innerText = "2D 모드로 전환됨";
             }
         }
         
+        // 페이지 로드 시 실행
         initLive2D();
 
+        // --- 말하기 함수 ---
         function speak(text) {
             let talkingInterval = null;
             if (isLive2DLoaded && live2dModel) {
+                // Live2D 입 뻐끔
                 talkingInterval = setInterval(() => {
                     const randomOpen = Math.random() * 0.8 + 0.2;
-                    try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen); } catch(e) {} 
+                    try { 
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen); 
+                    } catch(e) {} 
                 }, 100);
             } else {
+                // 토끼 통통
                 fallbackEl.classList.add('talking');
             }
+
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ko-KR';
             window.speechSynthesis.speak(utterance);
+            
             utterance.onend = () => {
                 document.getElementById('status-text').innerText = "같이 둘러보자!";
                 if (isLive2DLoaded && live2dModel) {
                     clearInterval(talkingInterval);
-                    try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); } catch(e) {}
-                } else { fallbackEl.classList.remove('talking'); }
+                    try { 
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); 
+                    } catch(e) {}
+                } else { 
+                    fallbackEl.classList.remove('talking'); 
+                }
             };
         }
 
-        const basicInfo = `[천문과학관 기본 정보] ... (생략) ...`;
+        const basicInfo = `[천문과학관 기본 정보]...`;
 
         const zones = {
             'lobby': {
@@ -192,7 +223,7 @@
                 setTimeout(() => { addMessage(randomAns, 'ai'); speak(randomAns); }, 500);
                 return;
             }
-            // (간소화) AI 연결 부분
+            // Gemini API 호출
             document.getElementById('status-text').innerText = "생각하는 중...";
             const reply = await callGeminiAPI(text, "답변");
             document.getElementById('status-text').innerText = "말하는 중...";
@@ -217,6 +248,7 @@
             div.className = `message ${type === 'user' ? 'user-msg' : 'ai-msg'}`;
             div.innerHTML = text;
             chatBox.appendChild(div);
+            chatBox.scrollTop = chatBox.scrollHeight;
         }
 
         function renderButtons(buttons) {
