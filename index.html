@@ -30,15 +30,14 @@
             top: 20px;
             left: 20px;
             width: calc(100% - 40px);
-            max-width: 350px; /* PC에서도 너무 길어지지 않게 */
+            max-width: 350px;
             z-index: 10;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            pointer-events: none; /* 클릭이 캐릭터를 통과하도록 */
+            pointer-events: none;
         }
 
-        /* 장소 이름 태그 */
         .zone-badge {
             align-self: flex-start;
             background: rgba(79, 195, 247, 0.2);
@@ -52,7 +51,6 @@
             box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
         }
 
-        /* 대화 말풍선 (유리창 효과) */
         .chat-bubble {
             background: rgba(0, 0, 0, 0.6);
             backdrop-filter: blur(10px);
@@ -67,14 +65,14 @@
         }
 
         .chat-bubble.user {
-            border-left-color: #ff9800; /* 질문은 주황색 포인트 */
+            border-left-color: #ff9800; 
             align-self: flex-start;
             background: rgba(0, 0, 0, 0.4);
             color: #ffd180;
         }
 
         .chat-bubble.ai {
-            border-left-color: #4fc3f7; /* 답변은 파란색 포인트 */
+            border-left-color: #4fc3f7; 
             align-self: flex-start;
         }
 
@@ -90,12 +88,10 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            /* 아이폰 하단 바 대응 + 여유 공간 */
             padding-bottom: max(20px, env(safe-area-inset-bottom)); 
             background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
         }
 
-        /* 선택지 버튼들 (가로 스크롤) */
         .choice-scroll-area {
             width: 100%;
             overflow-x: auto;
@@ -103,10 +99,10 @@
             padding: 10px 15px;
             box-sizing: border-box;
             -webkit-overflow-scrolling: touch;
-            scrollbar-width: none; /* 스크롤바 숨김 */
+            scrollbar-width: none;
             display: flex;
             gap: 10px;
-            justify-content: center; /* 버튼 적을 땐 중앙 정렬 */
+            justify-content: center;
         }
         .choice-scroll-area::-webkit-scrollbar { display: none; }
 
@@ -124,7 +120,6 @@
         .choice-btn:active { transform: scale(0.95); background: #4fc3f7; color: black; border-color: #4fc3f7; }
         .choice-btn.move { border-color: #ff9800; color: #ff9800; background: rgba(255, 152, 0, 0.1); }
 
-        /* 입력바 (채팅창) */
         .input-bar {
             width: calc(100% - 30px);
             max-width: 600px;
@@ -165,7 +160,6 @@
 <body>
     <div class="background"></div>
     <div class="stars"></div>
-
     <canvas id="live2d-canvas"></canvas>
 
     <div class="hud-area" id="hud-container">
@@ -179,7 +173,6 @@
 
     <div class="bottom-container">
         <div class="choice-scroll-area" id="choice-container"></div>
-
         <div class="input-bar">
             <button class="icon-btn" id="mic-btn">🎙️</button>
             <input type="text" class="input-box" id="text-input" placeholder="대화를 시작하세요..." autocomplete="off">
@@ -190,82 +183,65 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- Live2D 설정 (화면 중앙 배치) ---
+        // --- Live2D 설정 ---
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
         let live2dApp = null;
         let live2dModel = null;
 
         async function initLive2D() {
             try {
-                // 1. 전체 화면 캔버스 앱 생성
                 live2dApp = new PIXI.Application({
                     view: document.getElementById('live2d-canvas'),
                     autoStart: true,
-                    resizeTo: window, // 창 크기에 맞춰 자동 리사이징
+                    resizeTo: window,
                     backgroundAlpha: 0 
                 });
 
-                // 2. 모델 로드
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                // 3. 모델 배치 (정중앙 + 크게)
-                resizeModel(); // 초기 크기 설정
+                resizeModel();
 
-                // 4. 스테이지 추가 및 인터랙션
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
                 live2dModel.on('pointertap', () => {
                     live2dModel.motion('TapBody');
-                    // 캐릭터 터치 시 귀여운 반응 대사
                     addMessage("헤헤, 반가워!", 'ai'); 
                     speak("헤헤, 반가워!");
                 });
 
                 console.log("Live2D 초기화 완료");
-
-            } catch (e) {
-                console.error("Live2D 로드 실패:", e);
-            }
+            } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
-        // 반응형 모델 크기/위치 조절 함수
         function resizeModel() {
             if (!live2dModel) return;
-            
-            // 화면 크기에 따라 모델 크기 조절 (모바일에서는 좀 더 꽉 차게)
             const isMobile = window.innerWidth < 600;
             const scale = isMobile ? 0.35 : 0.3; 
-            
             live2dModel.scale.set(scale);
             live2dModel.anchor.set(0.5);
             live2dModel.x = window.innerWidth / 2;
-            
-            // 화면 세로 중앙보다 약간 아래에 배치 (얼굴이 중앙에 오도록)
             live2dModel.y = window.innerHeight * 0.55; 
         }
 
-        // 창 크기 변경 시 모델 위치 재조정
         window.addEventListener('resize', resizeModel);
-        
         initLive2D();
 
-
-        // --- 도슨트 로직 (기존 유지 + HUD UI 적용) ---
-        const basicInfo = `[천문과학관 기본 정보]... (기존 내용 동일)`;
+        // --- 도슨트 로직 ---
+        const basicInfo = `[천문과학관 기본 정보]... (knowledge.js 활용)`;
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
-                basePrompt: "너는 1층 로비 도슨트야.",
+                basePrompt: "너는 1층 로비 도슨트야. 아트밸리 역사와 과학관 전체 구조를 설명해줘.",
                 buttons: [
-                    { text: "아트밸리의 유래는?", type: "chat", answers: ["원래 돌을 캐던 채석장이었어!"] },
+                    { text: "아트밸리는 원래 뭐하던 곳?", type: "chat", answers: ["원래 돌을 캐던 채석장이었어!"] },
                     { text: "천주호 설명해줘", type: "chat", answers: ["1급수 호수야. 가재도 살아!"] },
                     { text: "1전시실로 이동 👉", type: "move", target: "ex1" }
                 ]
             },
             'ex1': {
                 name: "제1전시실 (지구)",
-                basePrompt: "너는 1전시실 도슨트야.",
+                basePrompt: "너는 1전시실(지구) 도슨트야. 지구 내부와 판구조론을 설명해줘.",
                 buttons: [
                     { text: "지구 구조", type: "ask", key: "earth_structure_detail" },
                     { text: "판구조론", type: "ask", key: "plate_tectonics_detail" },
@@ -275,7 +251,7 @@
             },
             'ex2': {
                 name: "제2전시실 (태양계)",
-                basePrompt: "너는 2전시실 도슨트야.",
+                basePrompt: "너는 2전시실(태양계) 도슨트야.",
                 buttons: [
                     { text: "행성 특징", type: "ask", key: "solar_system_planets" },
                     { text: "목성까지 거리", type: "ask", key: "space_distance" },
@@ -304,49 +280,30 @@
         const hudContainer = document.getElementById('hud-container');
         const zoneBadge = document.getElementById('zone-badge');
 
-        // [핵심 변경] 메시지 추가 함수 (최신 대화만 남기기)
         function addMessage(text, type) {
-            // 사용자 질문이 들어오면 기존 대화 내용을 정리하는 로직 선택
-            
-            // 1. 말풍선 생성
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${type}`;
-            
-            // 텍스트 포맷팅
             let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
             bubble.innerHTML = formatted;
-
-            // 2. HUD에 추가
             hudContainer.appendChild(bubble);
 
-            // 3. 오래된 메시지 삭제 (화면이 꽉 차지 않도록 최근 2~3개만 유지)
-            // 질문-답변 세트가 잘 보이도록 조정
             while (hudContainer.querySelectorAll('.chat-bubble').length > 2) {
                 hudContainer.removeChild(hudContainer.querySelector('.chat-bubble'));
             }
         }
 
-        // 구역 설정
         window.setZone = (zoneId) => {
             currentZoneId = zoneId;
             const config = zones[zoneId];
-            
-            // 배지 이름 변경
             zoneBadge.innerText = `📍 ${config.name}`;
-            
-            // 시스템 메시지 대신 배지가 바뀌었으므로 생략하거나 짧게 알림
             addMessage(`${config.name}에 도착했어!`, 'ai');
             speak(`${config.name}에 도착했어!`);
-            
             renderButtons(config.buttons);
         };
 
-        // 버튼 렌더링
         function renderButtons(buttons) {
             const container = document.getElementById('choice-container');
             container.innerHTML = '';
-            
-            // 버튼들 중앙 정렬을 위해 유연하게 배치
             if(buttons.length < 3) container.style.justifyContent = 'center';
             else container.style.justifyContent = 'flex-start';
 
@@ -362,11 +319,9 @@
             });
         }
 
-        // 사용자 입력 처리
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
-            // 빠른 답변 (랜덤)
             if (answers) {
                 const ans = answers[Math.floor(Math.random() * answers.length)];
                 setTimeout(() => { 
@@ -377,24 +332,57 @@
                 return;
             }
 
-            // API 호출 시뮬레이션
-            addMessage("음... 잠시만 기다려줘!", 'ai'); 
-            const reply = await callGeminiAPI(text, zones[currentZoneId].basePrompt);
+            // [중요 변경됨] 가짜 API 대신 진짜 API 호출로 변경
+            addMessage("잠시만... 생각 좀 해볼게!", 'ai'); 
             
-            // "기다려줘" 메시지 지우고 실제 답변으로 교체하면 더 자연스럽지만, 
-            // 여기선 심플하게 추가 (위의 삭제 로직 때문에 자연스럽게 밀려남)
+            // 여기서 knowledge.js의 데이터를 가져와서 프롬프트에 섞어줄 수 있음
+            let contextData = "";
+            if (dataKey) {
+                const item = exhibitionData.find(d => d.id === dataKey);
+                if (item) contextData = `[참고 정보] ${item.description.basic}`;
+            }
+
+            const prompt = `
+                ${zones[currentZoneId].basePrompt}
+                ${contextData}
+                (답변 규칙: 히요리처럼 귀엽고 친근한 반말로, 3문장 이내로 짧게 핵심만 말해줘.)
+            `;
+
+            const reply = await callGeminiAPI(text, prompt);
+            
             addMessage(reply, 'ai');
             speak(reply);
-            
             if(live2dModel) try { live2dModel.motion('TapBody'); } catch(e){}
         }
 
-        // (가짜 API)
+        // [핵심] 진짜 API 호출 함수 (Vercel Serverless Function 연결)
         async function callGeminiAPI(text, systemPrompt) {
-            return new Promise(r => setTimeout(() => r(`"${text}"에 대한 설명을 해줄게! 여기는 정말 멋진 곳이야.`), 1000));
+            try {
+                // api/chat.js 로 POST 요청
+                const response = await fetch('/api/chat', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        message: text, 
+                        systemPrompt: systemPrompt 
+                    })
+                });
+
+                const data = await response.json();
+                
+                if (data.error) {
+                    console.error("API Error:", data.error);
+                    return "앗, 머리가 좀 아파... 다시 물어봐줄래?";
+                }
+                
+                return data.reply || "대답을 못 찾겠어 ㅠㅠ";
+
+            } catch (err) {
+                console.error("Network Error:", err);
+                return "인터넷 연결이 좀 불안한 것 같아!";
+            }
         }
 
-        // 말하기 (Lip Sync)
         function speak(text) {
             window.speechSynthesis.cancel();
             const utterance = new SpeechSynthesisUtterance(text);
@@ -413,15 +401,12 @@
             };
         }
 
-        // 이벤트 리스너
         const textInput = document.getElementById('text-input');
         const sendBtn = document.getElementById('send-btn');
         sendBtn.onclick = () => { if(textInput.value){ handleUserInput(textInput.value); textInput.value=''; }};
         textInput.onkeypress = (e) => { if(e.key==='Enter') sendBtn.click(); };
 
-        // 초기화
         window.onload = () => setZone('lobby');
-
     </script>
 </body>
 </html>
