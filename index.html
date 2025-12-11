@@ -29,7 +29,7 @@
             position: fixed;
             top: 20px;
             left: 20px;
-            height: 35vh; /* 화면 상단 35%만 사용 (얼굴 가리지 않게 조절) */
+            height: 40vh; /* 화면의 40% 영역 사용 */
             width: calc(100% - 40px);
             max-width: 350px;
             z-index: 10;
@@ -199,7 +199,7 @@
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                resizeModel();
+                resizeModel(); // [중요] 모델 리사이징 실행
 
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
@@ -213,26 +213,27 @@
             } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
-        // [핵심 수정] 몸통 잘라내기 (얼굴 집중 모드)
+        // [핵심 수정] 배만 보이는 문제 해결 -> 머리 고정 방식
         function resizeModel() {
             if (!live2dModel) return;
 
             const isMobile = window.innerWidth < 600;
 
-            // 1. 기준점: 머리 꼭대기(0.0) 고정
+            // 1. 기준점(Anchor)을 머리 위(0.0)로 변경
+            // X=0.5(중앙), Y=0.0(정수리)
+            // 이렇게 하면 모델을 확대해도 머리 위치는 고정되고 다리만 아래로 길어짐
             live2dModel.anchor.set(0.5, 0);
 
-            // 2. 가로: 중앙
+            // 2. 가로 위치: 화면 정중앙
             live2dModel.x = window.innerWidth / 2;
 
-            // 3. 세로: 화면 상단 (이마가 화면 위쪽에 닿게)
-            // 0.05 = 화면 맨 위에서 5% 정도 내려옴 (너무 딱 붙지 않게)
-            live2dModel.y = window.innerHeight * 0.05;
+            // 3. 세로 위치: 화면 상단에서 10% 정도 떨어진 곳에 머리 배치
+            // 이마가 화면 위쪽에 딱 걸리게 됨
+            live2dModel.y = window.innerHeight * 0.1;
 
-            // 4. 크기: 엄청나게 키움 (Zoom-in 효과)
-            // 모바일은 0.85배, PC는 0.55배
-            // 이렇게 하면 몸통은 화면 길이를 넘어가서 자동으로 안 보이게 됨
-            const scale = isMobile ? 0.85 : 0.55;
+            // 4. 크기 설정 (화면 꽉 차게)
+            // 모바일은 0.6배, PC는 0.35배 정도로 설정하면 상반신이 꽉 참
+            const scale = isMobile ? 0.6 : 0.35;
             live2dModel.scale.set(scale);
         }
 
