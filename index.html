@@ -253,7 +253,7 @@ function resizeModel() {
     // 3. 세로 위치 (여기가 핵심!)
     // 모델의 중심(배꼽)을 화면 맨 아래(1.0)보다 더 아래(1.1 ~ 1.2)로 내려야 
     // 위에 있는 얼굴이 화면 중간으로 내려옵니다.
-    live2dModel.y = window.innerHeight * 1.1; 
+    live2dModel.y = window.innerHeight * 1.2; 
 }
         window.addEventListener('resize', resizeModel);
         initLive2D();
@@ -438,4 +438,5 @@ function resizeModel() {
     </script>
 </body>
 </html>
+
 
