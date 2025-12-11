@@ -2,280 +2,177 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>포천아트밸리 천문과학관 AI 도슨트</title>
+    <title>Live2D Core Test</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     
     <script src="https://cdn.jsdelivr.net/gh/datsver/live2d-widget@latest/live2d.min.js"></script>
-
     <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.2/browser/pixi.min.js"></script>
-    
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
 
     <style>
-        /* 스타일은 기존 유지 */
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
-        .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
-        .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
+        body { margin: 0; background-color: #222; color: white; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; overflow: hidden; font-family: sans-serif; }
         
-        .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
-        
-        /* 캔버스 크기 조정 */
-        #live2d-canvas { width: 80px; height: 80px; }
-        
-        .character-fallback { width: 50px; height: 50px; background: white; border-radius: 50%; border: 2px solid #4fc3f7; display: none; align-items: center; justify-content: center; font-size: 24px; }
-        .character-fallback.show { display: flex; }
-        .character-fallback.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
-        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
+        /* 캔버스 영역 */
+        #canvas-container {
+            width: 100vw;
+            height: 80vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background: radial-gradient(circle, #333 0%, #000 100%); /* 배경 단순화 */
+        }
+        canvas { display: block; }
 
-        .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
-        .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
-        .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
-        .message { padding: 12px 16px; border-radius: 18px; max-width: 85%; line-height: 1.5; font-size: 0.95rem; word-break: break-word; animation: popIn 0.3s; }
-        .user-msg { background: #3949ab; align-self: flex-end; border-bottom-right-radius: 4px; color: white; }
-        .ai-msg { background: rgba(255,255,255,0.1); align-self: flex-start; border-bottom-left-radius: 4px; color: #e3f2fd; border: 1px solid rgba(255,255,255,0.1); }
-        .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
-        @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-        .nav-area { flex: 0 0 auto; display: flex; justify-content: center; gap: 10px; padding: 10px 15px 5px 15px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); }
-        .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 5px 15px 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.4); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
-        .choice-area::-webkit-scrollbar { display: none; }
-        .choice-btn { border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; padding: 8px 16px; }
-        .ask-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; }
-        .ask-btn:active { background: #4fc3f7; color: black; }
-        .ask-btn.visited { opacity: 0.4; border-color: #555; color: #888; background: rgba(0,0,0,0.1); }
-        .move-btn { background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; font-weight: bold; }
-        .move-btn:active { background: #ff9800; color: white; }
-        .control-area { flex: 0 0 auto; padding: 10px 15px; padding-bottom: max(60px, env(safe-area-inset-bottom)); background: #121212; display: flex; align-items: center; gap: 10px; border-top: 1px solid #333; z-index: 20; }
-        .input-box { flex: 1; background: #2c2c2c; border: 1px solid #444; border-radius: 25px; padding: 12px 15px; color: white; font-size: 1rem; outline: none; }
-        .icon-btn { width: 45px; height: 45px; border-radius: 50%; border: none; color: white; font-size: 20px; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        #mic-btn { background: #f44336; }
-        #mic-btn.listening { background: #4caf50; animation: pulse 1.5s infinite; }
-        #send-btn { background: #3949ab; }
-        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0.7); } 70% { box-shadow: 0 0 0 10px rgba(76, 175, 80, 0); } 100% { box-shadow: 0 0 0 0 rgba(76, 175, 80, 0); } }
+        /* 컨트롤 패널 */
+        .controls {
+            height: 20vh;
+            width: 100%;
+            background: #111;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 20px;
+            z-index: 10;
+            border-top: 1px solid #444;
+        }
+
+        button {
+            padding: 15px 25px;
+            font-size: 16px;
+            cursor: pointer;
+            background: #4fc3f7;
+            border: none;
+            border-radius: 8px;
+            font-weight: bold;
+            color: #000;
+            transition: 0.2s;
+        }
+        button:active { transform: scale(0.95); background: #29b6f6; }
+        button.secondary { background: #ffeb3b; }
+
+        #status { position: absolute; top: 10px; left: 10px; color: lime; font-family: monospace; background: rgba(0,0,0,0.5); padding: 5px; }
     </style>
 </head>
 <body>
-    <div class="background"></div>
-    <div class="stars"></div>
 
-    <div class="header-area">
-        <canvas id="live2d-canvas"></canvas>
-        <div id="fallback-char" class="character-fallback show">🐰</div>
-        <div class="header-text">
-            <h1 id="zone-name">로비</h1>
-            <p id="status-text">같이 둘러보자!</p>
-        </div>
+    <div id="status">상태: 초기화 중...</div>
+
+    <div id="canvas-container">
+        <canvas id="canvas"></canvas>
     </div>
 
-    <div class="chat-area" id="chat-box">
-        <div class="message ai-msg">
-            안녕! 나는 히요리야! 🐰<br>
-            포천아트밸리 천문과학관에 온 걸 환영해.
-        </div>
+    <div class="controls">
+        <button onclick="testMotion()">💃 모션 테스트</button>
+        <button class="secondary" onclick="testSpeak()">💬 말하기 테스트</button>
     </div>
 
-    <div class="nav-area" id="nav-container"></div>
-    <div class="choice-area" id="choice-container"></div>
-    <div class="control-area">
-        <button class="icon-btn" id="mic-btn">🎙️</button>
-        <input type="text" class="input-box" id="text-input" placeholder="궁금한 걸 물어봐..." autocomplete="off">
-        <button class="icon-btn" id="send-btn">➤</button>
-    </div>
+    <script>
+        // --- 설정 영역 ---
+        // 사용할 모델 주소 (히요리)
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
 
-    <script type="module">
-        import { exhibitionData } from './knowledge.js';
+        // 전역 변수
+        let app, model;
+        const statusEl = document.getElementById('status');
 
-        // --- 1. 개선된 Live2D 설정 (PixiJS + pixi-live2d-display) ---
-        const modelUrl = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
-        const canvasEl = document.getElementById('live2d-canvas');
-        const fallbackEl = document.getElementById('fallback-char');
-        
-        // 전역 변수로 관리
-        let app = null;
-        let model = null;
-        let isLive2DLoaded = false;
-
-        async function initLive2D() {
+        // 1. 초기화 함수
+        async function init() {
             try {
-                // Pixi Application 생성 (배경 투명)
+                // Pixi 앱 생성
                 app = new PIXI.Application({
-                    view: canvasEl,
+                    view: document.getElementById('canvas'),
                     autoStart: true,
-                    backgroundAlpha: 0,
-                    width: 300, // 캔버스 내부 해상도 (CSS 크기와 다름)
-                    height: 300
+                    resizeTo: document.getElementById('canvas-container'), // 컨테이너 크기에 맞춤
+                    backgroundAlpha: 0 // 투명 배경
                 });
 
-                // 모델 로드 (여기가 핵심: 한 줄로 로드 끝!)
-                console.log("Live2D 모델 로딩 중...");
-                model = await PIXI.live2d.Live2DModel.from(modelUrl);
+                statusEl.innerText = "상태: 모델 다운로드 중...";
 
-                // 모델 위치 및 크기 설정
-                model.anchor.set(0.5); // 중심점 설정
+                // Live2D 모델 로드 (한 줄로 끝!)
+                model = await PIXI.live2d.Live2DModel.from(MODEL_URL);
+
+                // 모델 배치 (화면 중앙)
+                model.anchor.set(0.5);
                 model.x = app.screen.width / 2;
-                model.y = app.screen.height / 2 + 50; // 약간 아래로 내림
-                model.scale.set(0.12); // 모델 크기 조절
+                model.y = app.screen.height / 2 + 100; // 약간 아래로
+                model.scale.set(0.25); // 크기 조절 (화면에 맞게 조절 필요)
 
-                // 클릭/터치 이벤트 (도슨트 반응)
-                model.on('hit', (hitAreas) => {
-                    if (hitAreas.includes('Body')) {
-                        model.motion('TapBody'); // 터치 시 모션 재생
-                    }
+                // 마우스 상호작용 활성화
+                model.interactive = true;
+
+                // 클릭 이벤트 (몸 터치 시 반응)
+                model.on('pointertap', () => {
+                    model.motion('TapBody');
+                    console.log("터치됨!");
                 });
 
-                // 스테이지에 추가
                 app.stage.addChild(model);
+                
+                statusEl.innerText = "상태: 준비 완료 (터치 가능)";
+                console.log("모델 로드 성공:", model);
 
-                // 성공 처리
-                isLive2DLoaded = true;
-                fallbackEl.classList.remove('show');
-                fallbackEl.style.display = 'none';
-                console.log("Live2D 로드 성공!");
-
-            } catch (error) {
-                console.error("Live2D 로드 실패 (Fallback 전환):", error);
-                canvasEl.style.display = 'none';
-                fallbackEl.classList.add('show');
-                fallbackEl.style.display = 'flex';
-                isLive2DLoaded = false;
-                document.getElementById('status-text').innerText = "2D 모드로 전환됨";
+            } catch (err) {
+                console.error(err);
+                statusEl.innerText = "에러 발생! 콘솔 확인 필요";
+                statusEl.style.color = "red";
             }
         }
-        
-        initLive2D();
 
-        // --- 2. 말하기 함수 (입모양 동기화 포함) ---
-        function speak(text) {
-            let talkingInterval = null;
+        init();
 
-            // Live2D 입모양 움직이기 (랜덤)
-            if (isLive2DLoaded && model) {
-                talkingInterval = setInterval(() => {
-                    // 입 벌리기 파라미터 랜덤 설정 (0.0 ~ 1.0)
-                    const randomOpen = Math.random();
-                    try {
-                        model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen);
-                    } catch(e) {} 
-                }, 100);
-            } else {
-                fallbackEl.classList.add('talking');
-            }
 
-            // TTS 실행
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ko-KR';
-            window.speechSynthesis.speak(utterance);
+        // 2. 모션 테스트 함수
+        function testMotion() {
+            if (!model) return;
+            // 모델이 가진 모션 중 하나를 강제 재생
+            // 'TapBody'는 히요리 모델에 내장된 모션 이름입니다.
+            model.motion('TapBody'); 
+            statusEl.innerText = "상태: 모션 재생 중";
+        }
+
+
+        // 3. 말하기(입모양) 테스트 함수
+        let talkingInterval;
+        function testSpeak() {
+            if (!model) return;
+
+            statusEl.innerText = "상태: 말하는 중...";
             
+            // TTS 실행
+            const text = "안녕하세요! Live2D 모델 구현 테스트 중입니다.";
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = "ko-KR";
+            window.speechSynthesis.speak(utterance);
+
+            // 입 벙긋거리는 애니메이션 (수동 구현)
+            if (talkingInterval) clearInterval(talkingInterval);
+            
+            talkingInterval = setInterval(() => {
+                // 입 벌리기 파라미터 (0.0 ~ 1.0) 랜덤 조절
+                const val = Math.random(); 
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val);
+                } catch(e) {}
+            }, 100);
+
+            // 말 끝나면 입 다물기
             utterance.onend = () => {
-                document.getElementById('status-text').innerText = "같이 둘러보자!";
-                
-                // 말하기 끝나면 입 다물기
-                if (isLive2DLoaded && model) {
-                    clearInterval(talkingInterval);
-                    try {
-                        model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
-                    } catch(e) {}
-                } else {
-                    fallbackEl.classList.remove('talking'); 
-                }
+                clearInterval(talkingInterval);
+                try {
+                    model.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
+                } catch(e) {}
+                statusEl.innerText = "상태: 대기 중";
             };
         }
 
-        // --- 3. 기존 대화 및 네비게이션 로직 (유지) ---
-        const zones = {
-            'lobby': {
-                name: "로비 (1F)",
-                buttons: [
-                    { text: "아트밸리는 원래 뭐하던 곳?", type: "chat", answers: ["채석장이었어! 과거엔 돌을 캐던 곳이지."] },
-                    { text: "천주호는 어떻게 생겼어?", type: "chat", answers: ["채석 후 남은 웅덩이에 샘물과 빗물이 유입되어 형성된 1급수 호수야!"] },
-                    { text: "1전시실(우측)로 이동 👉", type: "move", target: "ex1" }
-                ]
-            },
-            'ex1': {
-                name: "제1전시실",
-                buttons: [
-                    { text: "지구 내부는 어떻게 생겼어?", type: "ask", key: "earth_structure_detail" },
-                    { text: "👈 로비로", type: "move", target: "lobby" }
-                ]
+        // 창 크기 조절 대응
+        window.onresize = () => {
+            if(app && model) {
+                model.x = app.screen.width / 2;
+                model.y = app.screen.height / 2 + 100;
             }
         };
-
-        let currentZoneId = 'lobby';
-        const chatBox = document.getElementById('chat-box');
-
-        async function handleUserInput(text, dataKey = null, answers = null) {
-            addMessage(text, 'user');
-            
-            // 정해진 답변이 있는 경우 (API 호출 없이 빠른 응답)
-            if (answers && Array.isArray(answers)) {
-                const randomAns = answers[Math.floor(Math.random() * answers.length)];
-                setTimeout(() => { 
-                    addMessage(randomAns, 'ai'); 
-                    speak(randomAns); 
-                    // 대답할 때 랜덤 모션 재생
-                    if(isLive2DLoaded && model) {
-                        try { model.motion('TapBody'); } catch(e){}
-                    }
-                }, 500);
-                return;
-            }
-
-            // Gemini API 호출 (가정)
-            document.getElementById('status-text').innerText = "생각하는 중...";
-            const reply = await callGeminiAPI(text, "답변"); // 실제 구현 필요
-            
-            document.getElementById('status-text').innerText = "말하는 중...";
-            addMessage(reply, 'ai');
-            speak(reply);
-        }
-
-        // 가짜 API 함수 (실제 연결 시 수정)
-        async function callGeminiAPI(text, systemPrompt) {
-            // 여기에 실제 fetch 코드가 들어갑니다. 지금은 에코만 합니다.
-            return new Promise(resolve => setTimeout(() => resolve("네, " + text + "에 대해 설명해줄게!"), 1000));
-        }
-
-        function addMessage(text, type) {
-            const div = document.createElement('div');
-            div.className = `message ${type === 'user' ? 'user-msg' : 'ai-msg'}`;
-            div.innerHTML = text;
-            chatBox.appendChild(div);
-            chatBox.scrollTop = chatBox.scrollHeight;
-        }
-
-        function renderButtons(buttons) {
-            const navContainer = document.getElementById('nav-container');
-            const choiceContainer = document.getElementById('choice-container');
-            navContainer.innerHTML = ''; choiceContainer.innerHTML = '';
-            
-            buttons.forEach(btn => {
-                const buttonEl = document.createElement('button');
-                buttonEl.innerText = btn.text;
-                buttonEl.onclick = () => { if (btn.type === 'move') setZone(btn.target); else handleUserInput(btn.text, btn.key, btn.answers); };
-                
-                if (btn.type === 'move') { 
-                    buttonEl.className = 'choice-btn move-btn'; 
-                    navContainer.appendChild(buttonEl); 
-                } else { 
-                    buttonEl.className = 'choice-btn ask-btn'; 
-                    choiceContainer.appendChild(buttonEl); 
-                }
-            });
-        }
-
-        window.setZone = (id) => {
-            currentZoneId = id;
-            document.getElementById('zone-name').innerText = zones[id].name;
-            renderButtons(zones[id].buttons);
-        };
-
-        const textInput = document.getElementById('text-input');
-        const sendBtn = document.getElementById('send-btn');
-        sendBtn.addEventListener('click', () => { if(textInput.value) { handleUserInput(textInput.value); textInput.value=''; }});
-        
-        window.onload = () => { setZone('lobby'); };
     </script>
 </body>
 </html>
-
