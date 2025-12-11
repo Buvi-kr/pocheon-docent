@@ -234,26 +234,27 @@
         }
 
         // [수정] 모델 리사이징 로직 (상반신 위주 앵글 - 옵션 B)
-        function resizeModel() {
-            if (!live2dModel) return;
-            
-            const isMobile = window.innerWidth < 600;
-            
-            // 기존 0.35에서 대폭 확대 -> 가슴~머리까지 꽉 차게 나옴
-            // 모바일은 좀 더 가까이(1.5), PC는 적당히(1.3)
-            const scale = isMobile ? 1.5 : 1.3; 
-            
-            live2dModel.scale.set(scale);
-            live2dModel.anchor.set(0.5); // 중심점은 모델의 가운데
-            
-            live2dModel.x = window.innerWidth / 2;
-            
-            // Y축 위치 조정: 
-            // anchor가 0.5(중앙)이므로, 1.0이면 화면 바닥이 모델의 허리춤.
-            // 0.9 정도로 설정하면 상반신이 자연스럽게 나옴.
-            live2dModel.y = window.innerHeight * 0.9; 
-        }
-
+        // [수정] 모델 리사이징 (배만 보이는 문제 해결 -> 상반신 앵글 조정)
+function resizeModel() {
+    if (!live2dModel) return;
+    
+    const isMobile = window.innerWidth < 600;
+    
+    // 1. 확대 배율 조정 (너무 크면 부담스러우니 조금 줄임)
+    // 모바일: 1.5 -> 1.0 / PC: 1.3 -> 0.7
+    const scale = isMobile ? 1.0 : 0.7; 
+    
+    live2dModel.scale.set(scale);
+    live2dModel.anchor.set(0.5); // 중심점(배꼽 근처) 설정
+    
+    // 2. 가로 위치: 화면 정중앙
+    live2dModel.x = window.innerWidth / 2;
+    
+    // 3. 세로 위치 (여기가 핵심!)
+    // 모델의 중심(배꼽)을 화면 맨 아래(1.0)보다 더 아래(1.1 ~ 1.2)로 내려야 
+    // 위에 있는 얼굴이 화면 중간으로 내려옵니다.
+    live2dModel.y = window.innerHeight * 1.1; 
+}
         window.addEventListener('resize', resizeModel);
         initLive2D();
 
@@ -437,3 +438,4 @@
     </script>
 </body>
 </html>
+
