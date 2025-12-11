@@ -15,7 +15,7 @@
         .background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at bottom, #1a237e 0%, #000000 80%); }
         .stars { position: fixed; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.5; z-index: 0; pointer-events: none; }
 
-        /* --- 2. Live2D 캔버스 (주인공) --- */
+        /* --- 2. Live2D 캔버스 --- */
         #live2d-canvas {
             position: fixed;
             top: 0; left: 0;
@@ -24,35 +24,25 @@
             display: block;
         }
 
-        /* --- 3. 왼쪽 상단 HUD (대화 로그 - 스크롤 버전) --- */
+        /* --- 3. 왼쪽 상단 HUD (대화 로그) --- */
         .hud-area {
             position: fixed;
             top: 20px;
             left: 20px;
-            
-            /* 높이 제한을 두어 스크롤 영역 확보 */
-            height: 40vh; 
+            height: 40vh; /* 화면의 40% 영역 사용 */
             width: calc(100% - 40px);
             max-width: 350px;
-            
             z-index: 10;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            
-            /* 스크롤 활성화 */
             overflow-y: auto;
-            pointer-events: auto; /* 터치 가능 */
-            
-            /* 스크롤바 숨김 (깔끔하게) */
+            pointer-events: auto;
             -ms-overflow-style: none;
             scrollbar-width: none;
-            
-            /* 상단 페이드 아웃 효과 */
             mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
             -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
         }
-        
         .hud-area::-webkit-scrollbar { display: none; }
 
         .zone-badge {
@@ -80,20 +70,10 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             animation: slideIn 0.4s ease-out;
             border-left: 3px solid transparent;
-            flex-shrink: 0; /* 내용이 많아도 찌그러지지 않음 */
+            flex-shrink: 0; 
         }
-
-        .chat-bubble.user {
-            border-left-color: #ff9800; 
-            align-self: flex-start;
-            background: rgba(0, 0, 0, 0.4);
-            color: #ffd180;
-        }
-
-        .chat-bubble.ai {
-            border-left-color: #4fc3f7; 
-            align-self: flex-start;
-        }
+        .chat-bubble.user { border-left-color: #ff9800; align-self: flex-start; background: rgba(0, 0, 0, 0.4); color: #ffd180; }
+        .chat-bubble.ai { border-left-color: #4fc3f7; align-self: flex-start; }
 
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 
@@ -219,7 +199,7 @@
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                resizeModel(); // 모델 크기/위치 초기화
+                resizeModel(); // [중요] 모델 리사이징 실행
 
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
@@ -233,22 +213,28 @@
             } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
-        // [최종 수정] PC/모바일 공통 상반신 앵글 조정
+        // [핵심 수정] 배만 보이는 문제 해결 -> 머리 고정 방식
         function resizeModel() {
             if (!live2dModel) return;
-            
-            // 1. 공통 확대 배율 (상반신 클로즈업)
-            const COMMON_SCALE = 1.3; 
-            
-            live2dModel.scale.set(COMMON_SCALE);
-            live2dModel.anchor.set(0.5); // 중심점 설정
+
+            const isMobile = window.innerWidth < 600;
+
+            // 1. 기준점(Anchor)을 머리 위(0.0)로 변경
+            // X=0.5(중앙), Y=0.0(정수리)
+            // 이렇게 하면 모델을 확대해도 머리 위치는 고정되고 다리만 아래로 길어짐
+            live2dModel.anchor.set(0.5, 0);
 
             // 2. 가로 위치: 화면 정중앙
             live2dModel.x = window.innerWidth / 2;
-            
-            // 3. 세로 위치: 모델 중심을 화면 하단보다 더 아래로 밀어내서 상체만 노출
-            const VERTICAL_OFFSET_RATIO = 1.3; 
-            live2dModel.y = window.innerHeight * VERTICAL_OFFSET_RATIO;
+
+            // 3. 세로 위치: 화면 상단에서 10% 정도 떨어진 곳에 머리 배치
+            // 이마가 화면 위쪽에 딱 걸리게 됨
+            live2dModel.y = window.innerHeight * 0.1;
+
+            // 4. 크기 설정 (화면 꽉 차게)
+            // 모바일은 0.6배, PC는 0.35배 정도로 설정하면 상반신이 꽉 참
+            const scale = isMobile ? 0.6 : 0.35;
+            live2dModel.scale.set(scale);
         }
 
         window.addEventListener('resize', resizeModel);
@@ -306,16 +292,12 @@
         const hudContainer = document.getElementById('hud-container');
         const zoneBadge = document.getElementById('zone-badge');
 
-        // [수정] 새 메시지 추가 및 자동 스크롤
         function addMessage(text, type) {
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${type}`;
             let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
             bubble.innerHTML = formatted;
-            
             hudContainer.appendChild(bubble);
-
-            // 맨 아래로 스크롤 이동
             hudContainer.scrollTop = hudContainer.scrollHeight;
         }
 
@@ -349,7 +331,6 @@
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
-            // 1. 빠른 답변 (정해진 답변)
             if (answers) {
                 const ans = answers[Math.floor(Math.random() * answers.length)];
                 setTimeout(() => { 
@@ -360,7 +341,6 @@
                 return;
             }
 
-            // 2. 진짜 AI 답변 (Gemini API)
             addMessage("잠시만... 생각 좀 해볼게!", 'ai'); 
             
             let contextData = "";
@@ -382,27 +362,19 @@
             if(live2dModel) try { live2dModel.motion('TapBody'); } catch(e){}
         }
 
-        // Vercel Serverless Function 호출
         async function callGeminiAPI(text, systemPrompt) {
             try {
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        message: text, 
-                        systemPrompt: systemPrompt 
-                    })
+                    body: JSON.stringify({ message: text, systemPrompt: systemPrompt })
                 });
-
                 const data = await response.json();
-                
                 if (data.error) {
                     console.error("API Error:", data.error);
                     return "앗, 머리가 좀 아파... 다시 물어봐줄래?";
                 }
-                
                 return data.reply || "대답을 못 찾겠어 ㅠㅠ";
-
             } catch (err) {
                 console.error("Network Error:", err);
                 return "인터넷 연결이 좀 불안한 것 같아!";
