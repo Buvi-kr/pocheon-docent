@@ -24,12 +24,12 @@
             display: block;
         }
 
-        /* --- 3. 왼쪽 상단 HUD (대화 로그) --- */
+        /* --- 3. 왼쪽 상단 HUD --- */
         .hud-area {
             position: fixed;
             top: 20px;
             left: 20px;
-            height: 40vh; /* 화면의 40% 영역 사용 */
+            height: 35vh;
             width: calc(100% - 40px);
             max-width: 350px;
             z-index: 10;
@@ -199,7 +199,7 @@
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                resizeModel(); // [중요] 모델 리사이징 실행
+                resizeModel();
 
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
@@ -213,28 +213,30 @@
             } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
-        // [핵심 수정] 배만 보이는 문제 해결 -> 머리 고정 방식
+        // [최종 수정] 모바일/PC 비율 최적화
         function resizeModel() {
             if (!live2dModel) return;
 
-            const isMobile = window.innerWidth < 600;
+            const isMobile = window.innerWidth < 800; // 기준을 약간 넉넉하게 잡음
 
-            // 1. 기준점(Anchor)을 머리 위(0.0)로 변경
-            // X=0.5(중앙), Y=0.0(정수리)
-            // 이렇게 하면 모델을 확대해도 머리 위치는 고정되고 다리만 아래로 길어짐
+            // 1. 기준점: 머리 꼭대기(0.0) 고정
             live2dModel.anchor.set(0.5, 0);
 
-            // 2. 가로 위치: 화면 정중앙
+            // 2. 가로: 중앙
             live2dModel.x = window.innerWidth / 2;
 
-            // 3. 세로 위치: 화면 상단에서 10% 정도 떨어진 곳에 머리 배치
-            // 이마가 화면 위쪽에 딱 걸리게 됨
-            live2dModel.y = window.innerHeight * 0.1;
-
-            // 4. 크기 설정 (화면 꽉 차게)
-            // 모바일은 0.6배, PC는 0.35배 정도로 설정하면 상반신이 꽉 참
-            const scale = isMobile ? 0.6 : 0.35;
-            live2dModel.scale.set(scale);
+            // 3. 세로 및 크기 설정
+            if (isMobile) {
+                // [모바일] 작게 설정 (0.45)
+                // Y축을 약간 더 내려서(0.15) 답답하지 않게
+                live2dModel.scale.set(0.45);
+                live2dModel.y = window.innerHeight * 0.15;
+            } else {
+                // [PC] 기존에 좋았던 설정 유지 (0.55)
+                // Y축은 상단(0.05)에 가깝게
+                live2dModel.scale.set(0.55);
+                live2dModel.y = window.innerHeight * 0.05;
+            }
         }
 
         window.addEventListener('resize', resizeModel);
