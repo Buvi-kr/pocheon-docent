@@ -14,11 +14,8 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
 
     <style>
-        body { 
-            margin: 0; display: flex; flex-direction: column; 
-            height: 100vh; height: 100dvh; 
-            background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; 
-        }
+        /* 기존 스타일 유지 */
+        body { margin: 0; display: flex; flex-direction: column; height: 100vh; height: 100dvh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
@@ -32,14 +29,12 @@
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
-
         .chat-area { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; gap: 15px; scroll-behavior: smooth; }
         .message { padding: 12px 16px; border-radius: 18px; max-width: 85%; line-height: 1.5; font-size: 0.95rem; word-break: break-word; animation: popIn 0.3s; }
         .user-msg { background: #3949ab; align-self: flex-end; border-bottom-right-radius: 4px; color: white; }
         .ai-msg { background: rgba(255,255,255,0.1); align-self: flex-start; border-bottom-left-radius: 4px; color: #e3f2fd; border: 1px solid rgba(255,255,255,0.1); }
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-
         .nav-area { flex: 0 0 auto; display: flex; justify-content: center; gap: 10px; padding: 10px 15px 5px 15px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); }
         .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 5px 15px 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.4); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .choice-area::-webkit-scrollbar { display: none; }
@@ -90,7 +85,9 @@
         import { exhibitionData } from './knowledge.js';
 
         // --- Live2D 설정 ---
-        const modelUrl = './models/hiyori/Hiyori.model3.json';
+        // [중요] 내 컴퓨터 파일 대신, '공식 Live2D 저장소'의 완벽한 파일을 인터넷으로 불러옵니다.
+        const modelUrl = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
+        
         const canvasEl = document.getElementById('live2d-canvas');
         const fallbackEl = document.getElementById('fallback-char');
         let live2dModel = null;
@@ -110,10 +107,9 @@
                     width: 300, height: 300
                 });
 
-                console.log("Live2D 모델 로딩 시도:", modelUrl);
+                console.log("Live2D 모델 로딩 시도 (공식 CDN):", modelUrl);
                 
                 // 1. 모델 로드
-                // (Cubism 2 런타임이 추가되었으므로 이제 에러가 안 날 겁니다!)
                 live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
                 
                 // 2. 화면 배치
