@@ -2,117 +2,75 @@
 <html lang="ko">
 <head>
     <meta charset="UTF-8">
-    <title>Live2D Cubism 2 Test</title>
+    <title>Live2D Universal Loader</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <style>
+        body { margin: 0; background-color: #333; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; }
+        canvas { display: block; }
+        #status { position: absolute; top: 20px; color: yellow; font-size: 1.2rem; background: rgba(0,0,0,0.5); padding: 5px 10px; border-radius: 5px; }
+    </style>
     
+    <script src="https://cubism.live2d.com/sdk-web/cubismcore/live2dcubismcore.min.js"></script>
     <script src="https://cdn.jsdelivr.net/gh/datsver/live2d-widget@latest/live2d.min.js"></script>
 
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.5.2/browser/pixi.min.js"></script>
 
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/index.min.js"></script>
-
-    <style>
-        body { margin: 0; background-color: #333; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; color: white; font-family: sans-serif; }
-        #canvas-container { position: relative; width: 100vw; height: 100vh; }
-        canvas { display: block; width: 100%; height: 100%; }
-        
-        .btn-area { position: absolute; bottom: 50px; left: 50%; transform: translateX(-50%); display: flex; gap: 10px; }
-        button { padding: 10px 20px; font-size: 16px; cursor: pointer; border: none; border-radius: 5px; background: #4fc3f7; font-weight: bold; }
-        button:active { background: #039be5; color: white; }
-    </style>
 </head>
 <body>
 
-    <div id="canvas-container">
-        <canvas id="canvas"></canvas>
-        
-        <div class="btn-area">
-            <button onclick="testMotion()">👋 인사하기</button>
-            <button onclick="testSpeak()">💬 말하기</button>
-        </div>
-    </div>
+    <div id="status">상태: 초기화 중...</div>
+    <canvas id="canvas"></canvas>
 
     <script>
-        // [중요] Cubism 2 모델 파일 (.model.json 으로 끝남)
-        // 시즈쿠(Shizuku) - 가장 안정적인 국민 예제 모델
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/shizuku/shizuku.model.json';
+        // 1. 모델 경로 설정 (스크린샷에 있는 'Hiyori' 모델 사용)
+        // Cubism 4 모델이므로 화질과 움직임이 가장 좋습니다.
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
 
-        let app, model;
+        (async function () {
+            const statusEl = document.getElementById('status');
+            
+            // 2. 라이브러리 로드 체크
+            if (!window.PIXI) { statusEl.innerText = "오류: PIXI 로드 실패"; return; }
+            if (!window.PIXI.live2d) { statusEl.innerText = "오류: Live2D 플러그인 로드 실패 (CDN 문제)"; return; }
 
-        async function init() {
-            // Pixi Application 생성
-            app = new PIXI.Application({
+            // 3. Pixi Application 생성
+            const app = new PIXI.Application({
                 view: document.getElementById('canvas'),
                 autoStart: true,
                 resizeTo: window,
                 backgroundAlpha: 0
             });
 
-            console.log("모델 로딩 시작...");
+            statusEl.innerText = "상태: 모델 다운로드 중...";
 
-            // 모델 로드
-            model = await PIXI.live2d.Live2DModel.from(MODEL_URL);
+            try {
+                // 4. 모델 로드 (Cubism 4 자동 감지)
+                const model = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-            // 위치 잡기
-            model.anchor.set(0.5);
-            model.x = window.innerWidth / 2;
-            model.y = window.innerHeight / 2 + 50;
-            model.scale.set(0.3); // 시즈쿠는 커서 좀 줄여야 함
+                // 5. 화면 중앙 배치
+                model.anchor.set(0.5);
+                model.x = window.innerWidth * 0.5;
+                model.y = window.innerHeight * 0.5 + 150; // 위치 미세 조정
+                model.scale.set(0.25); // 크기 조정
 
-            // 상호작용 설정
-            model.interactive = true;
-            model.on('pointertap', () => {
-                model.motion('tap_body'); // 시즈쿠 모델의 모션 이름
-            });
+                // 6. 상호작용 (터치 시 반응)
+                model.interactive = true;
+                model.on('pointertap', () => {
+                    model.motion('TapBody'); // Hiyori 전용 모션
+                    console.log("터치됨!");
+                });
 
-            app.stage.addChild(model);
-            console.log("모델 로드 완료!");
-        }
+                app.stage.addChild(model);
+                statusEl.innerText = "상태: 로드 성공! (화면 터치해보세요)";
+                statusEl.style.color = "#4caf50"; // 녹색
 
-        init();
-
-        // 모션 테스트 (시즈쿠 전용 모션 이름 사용)
-        function testMotion() {
-            if(model) {
-                // 시즈쿠가 가진 모션 그룹 중 하나를 랜덤 재생
-                model.motion('tap_body'); 
+            } catch (error) {
+                console.error(error);
+                statusEl.innerText = "상태: 모델 로드 실패 (콘솔 확인)";
+                statusEl.style.color = "red";
             }
-        }
-
-        // 말하기 테스트
-        function testSpeak() {
-            const text = "안녕하세요! 저는 시즈쿠입니다.";
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = "ko-KR";
-            window.speechSynthesis.speak(utterance);
-
-            // 입 벙긋거리기
-            let interval = setInterval(() => {
-                if(model) {
-                    // Cubism 2는 파라미터 이름이 조금 다름 (PARAM_MOUTH_OPEN_Y)
-                    // 하지만 플러그인이 알아서 매핑해주기도 함. 안전하게 직접 지정.
-                    try {
-                        model.internalModel.coreModel.setParamFloat('PARAM_MOUTH_OPEN_Y', Math.random());
-                    } catch(e) {}
-                }
-            }, 100);
-
-            utterance.onend = () => {
-                clearInterval(interval);
-                if(model) {
-                    try {
-                        model.internalModel.coreModel.setParamFloat('PARAM_MOUTH_OPEN_Y', 0);
-                    } catch(e) {}
-                }
-            };
-        }
-
-        window.onresize = () => {
-            if (model) {
-                model.x = window.innerWidth / 2;
-                model.y = window.innerHeight / 2 + 50;
-            }
-        }
+        })();
     </script>
 </body>
 </html>
