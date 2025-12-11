@@ -10,19 +10,42 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display/dist/index.min.js"></script>
 
     <style>
-        /* --- 기본 스타일 --- */
-        body { margin: 0; display: flex; flex-direction: column; height: 100vh; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; }
+        /* --- [핵심 수정 1] 높이 단위를 dvh로 변경하여 네비게이션 바 문제 해결 --- */
+        body { 
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            /* 100vh 대신 100dvh 사용 (모바일 상하단 바 제외한 실제 높이) */
+            height: 100vh; 
+            height: 100dvh; 
+            background: #0b0c15; 
+            color: white; 
+            font-family: 'Pretendard', sans-serif; 
+            overflow: hidden; 
+        }
+
         .background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: -1; background: radial-gradient(circle at center, #1a237e 0%, #000000 90%); }
         .stars { position: absolute; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.4; z-index: -1; }
         
         .header-area { flex: 0 0 auto; padding: 15px; background: rgba(0,0,0,0.7); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(255,255,255,0.1); display: flex; align-items: center; gap: 15px; z-index: 10; }
         
-        /* [변경] 기존 동그라미 대신 캔버스 영역 잡기 */
+        /* 캐릭터 영역: Live2D 캔버스 */
         #live2d-canvas {
-            width: 80px; /* 캐릭터 크기 */
-            height: 80px;
-            /* 배경 없앰 (투명) */
+            width: 60px; height: 60px;
+            /* 디버깅용: 캔버스 영역이 보이도록 임시 배경색 */
+            /* background: rgba(255, 255, 255, 0.1); */
         }
+
+        /* [비상용] Live2D 실패 시 보일 캐릭터 이미지 스타일 */
+        .character-fallback {
+            width: 50px; height: 50px; 
+            background: white; border-radius: 50%; border: 2px solid #4fc3f7; 
+            display: none; /* 기본은 숨김 */
+            align-items: center; justify-content: center; font-size: 24px;
+        }
+        .character-fallback.show { display: flex; } /* 실패 시 보여줌 */
+        .character-fallback.talking { border-color: #ffeb3b; box-shadow: 0 0 15px #ffeb3b; animation: bounce 0.5s infinite alternate; }
+        @keyframes bounce { 0% { transform: scale(1); } 100% { transform: scale(1.1); } }
 
         .header-text h1 { margin: 0; font-size: 1.1rem; color: #fff; text-shadow: 0 0 10px #4fc3f7; }
         .header-text p { margin: 0; font-size: 0.8rem; color: #4fc3f7; font-weight: bold; }
@@ -34,34 +57,23 @@
         .system-msg { text-align: center; color: #aaa; font-size: 0.85rem; margin: 10px 0; background: rgba(0,0,0,0.5); padding: 8px 15px; border-radius: 20px; align-self: center; border: 1px solid #555; }
         @keyframes popIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
 
-        /* 버튼 영역 */
         .nav-area { flex: 0 0 auto; display: flex; justify-content: center; gap: 10px; padding: 10px 15px 5px 15px; background: rgba(0,0,0,0.4); border-top: 1px solid rgba(255,255,255,0.05); }
         .choice-area { flex: 0 0 auto; display: flex; gap: 10px; padding: 5px 15px 10px 15px; overflow-x: auto; background: rgba(0,0,0,0.4); white-space: nowrap; -webkit-overflow-scrolling: touch; scrollbar-width: none; }
         .choice-area::-webkit-scrollbar { display: none; }
 
-        /* 버튼 스타일 */
         .choice-btn { border-radius: 20px; font-size: 0.9rem; cursor: pointer; transition: 0.2s; flex-shrink: 0; padding: 8px 16px; }
-        
         .ask-btn { background: rgba(255, 255, 255, 0.1); border: 1px solid #4fc3f7; color: #4fc3f7; }
         .ask-btn:active { background: #4fc3f7; color: black; }
-        
-        /* 방문한 버튼 스타일 */
-        .ask-btn.visited { 
-            opacity: 0.4; 
-            border-color: #555; 
-            color: #888; 
-            background: rgba(0,0,0,0.1);
-        }
-        
+        .ask-btn.visited { opacity: 0.4; border-color: #555; color: #888; background: rgba(0,0,0,0.1); }
         .move-btn { background: rgba(255, 152, 0, 0.2); border: 1px solid #ff9800; color: #ff9800; font-weight: bold; }
         .move-btn:active { background: #ff9800; color: white; }
 
-        /* [수정됨] 컨트롤 영역 하단 여백 추가 (모바일 대응) */
+        /* --- [핵심 수정 2] 하단 컨트롤 영역 안전하게 띄우기 --- */
         .control-area { 
             flex: 0 0 auto; 
             padding: 10px 15px; 
-            /* 하단 여백을 넉넉하게 40px + safe-area 추가 */
-            padding-bottom: calc(40px + env(safe-area-inset-bottom)); 
+            /* 하단 패딩을 아주 넉넉하게 줌 (내비게이션 바 고려) */
+            padding-bottom: max(60px, env(safe-area-inset-bottom)); 
             background: #121212; 
             display: flex; 
             align-items: center; 
@@ -83,6 +95,8 @@
 
     <div class="header-area">
         <canvas id="live2d-canvas"></canvas>
+        <div id="fallback-char" class="character-fallback">🐰</div>
+        
         <div class="header-text">
             <h1 id="zone-name">로비</h1>
             <p id="status-text">같이 둘러보자!</p>
@@ -109,48 +123,91 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- Live2D 설정 시작 ---
-        // [중요] 무료 샘플 모델 URL (Hiyori - 테스트용)
-        // 나중에 주임님이 구하신 '포우리' 모델 경로로 바꾸면 됩니다.
+        // --- Live2D 및 캐릭터 제어 로직 ---
         const modelUrl = 'https://cdn.jsdelivr.net/gh/guansss/pixi-live2d-display/test/assets/hiyori/hiyori.model3.json';
         let live2dModel = null;
+        let isLive2DLoaded = false;
+        
+        const canvasEl = document.getElementById('live2d-canvas');
+        const fallbackEl = document.getElementById('fallback-char');
 
         async function initLive2D() {
             try {
+                // Live2D 라이브러리가 제대로 로드됐는지 체크
+                if (!window.PIXI || !PIXI.live2d) {
+                    throw new Error("Live2D Library not loaded");
+                }
+
                 const app = new PIXI.Application({
-                    view: document.getElementById('live2d-canvas'),
+                    view: canvasEl,
                     autoStart: true,
-                    backgroundAlpha: 0, // 배경 투명
-                    width: 300,
-                    height: 300
+                    backgroundAlpha: 0, 
+                    width: 300, height: 300
                 });
 
-                // 모델 로드
+                console.log("Live2D 모델 로딩 시도...");
                 live2dModel = await PIXI.live2d.Live2DModel.from(modelUrl);
                 
-                // 위치 및 크기 조정
-                live2dModel.scale.set(0.12); // 크기 조절 (0.1 ~ 0.2 사이로 조정해보세요)
+                // 로드 성공 시
+                live2dModel.scale.set(0.12);
                 live2dModel.x = 20;
                 live2dModel.y = 30;
-
                 app.stage.addChild(live2dModel);
-                
-                // 랜덤 동작 한 번 실행 (살아있다는 느낌)
                 live2dModel.motion('TapBody');
                 
-                console.log("Live2D 모델 로드 완료!");
+                isLive2DLoaded = true;
+                console.log("Live2D 로드 성공!");
             } catch (error) {
-                console.error("Live2D 로드 실패:", error);
-                document.getElementById('status-text').innerText = "캐릭터 불러오기 실패 ㅠ";
+                console.error("Live2D 로드 실패 (Fallback 모드 전환):", error);
+                // [핵심] 실패 시 캔버스 숨기고 토끼 이모지 보여줌
+                canvasEl.style.display = 'none';
+                fallbackEl.classList.add('show');
+                isLive2DLoaded = false;
+                document.getElementById('status-text').innerText = "통신 상태가 안 좋아요 (2D 모드)";
             }
         }
         
-        // 페이지 로드 시 Live2D 실행
+        // 페이지 로드 시 실행
         initLive2D();
-        // --- Live2D 설정 끝 ---
+
+        // 립싱크 및 말하기 함수 통합
+        function speak(text) {
+            let talkingInterval = null;
+            
+            // 1. Live2D가 로드된 경우 (입모양 제어)
+            if (isLive2DLoaded && live2dModel) {
+                talkingInterval = setInterval(() => {
+                    const randomOpen = Math.random() * 0.8 + 0.2;
+                    try {
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen);
+                    } catch(e) {} // 에러 무시
+                }, 100);
+            } 
+            // 2. Live2D 실패 시 (토끼 이모지 통통 튀기기)
+            else {
+                fallbackEl.classList.add('talking');
+            }
+
+            const utterance = new SpeechSynthesisUtterance(text);
+            utterance.lang = 'ko-KR';
+            window.speechSynthesis.speak(utterance);
+            
+            utterance.onend = () => {
+                document.getElementById('status-text').innerText = "같이 둘러보자!";
+                
+                if (isLive2DLoaded && live2dModel) {
+                    clearInterval(talkingInterval);
+                    try {
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
+                    } catch(e) {}
+                } else {
+                    fallbackEl.classList.remove('talking');
+                }
+            };
+        }
 
 
-        // 구역 데이터 및 로직 (기존 코드 유지)
+        // --- 기존 로직 (Knowledge & Chat) ---
         const basicInfo = `
             [천문과학관 기본 정보]
             1. 정체: 포천아트밸리(폐채석장을 문화예술공간으로 재생) 내부에 위치한 과학관.
@@ -238,11 +295,7 @@
         let currentZoneId = 'lobby';
         let idleTimer = null;
         const visitedButtons = new Set(); 
-
         const chatBox = document.getElementById('chat-box');
-        
-        // [변경] 기존 char-icon 제거됨 -> Canvas로 대체되었으므로 관련 코드 제거/수정
-        // const charIcon = document.getElementById('char-icon'); 
 
         function getExhibitionContent(dataKey) {
             const item = exhibitionData.find(d => d.id === dataKey);
@@ -279,16 +332,13 @@
 
             const finalPrompt = `
                 역할: ${zones[currentZoneId].basePrompt}
-                
                 ${basicInfo}
                 ${contextData}
-
                 [절대 답변 규칙]
                 1. 팩트 체크: 위 [기본 정보]와 [참고 자료] 내용만 사실로 믿어.
                 2. 거짓말 금지: 자료에 없는 내용은 모른다고 답해.
                 3. 길이 조절: 3문장 이내. 나열형은 점(•)으로 정리.
                 4. 말투: 래비, 도기, 캐티처럼 귀엽고 친근한 반말.
-                
                 관람객 질문: "${text}"
             `;
 
@@ -311,36 +361,6 @@
             } catch (err) { return "네트워크를 확인해줘!"; }
         }
 
-        function speak(text) {
-            // [변경] 기존 CSS 애니메이션 제거
-            // charIcon.classList.add('talking'); 
-            
-            // [NEW] Live2D 입모양 움직이기 (간단 버전: 랜덤하게 뻐끔거림)
-            let talkingInterval = null;
-            if (live2dModel) {
-                // 0.1초마다 입을 랜덤하게 벌렸다 다물었다 함
-                talkingInterval = setInterval(() => {
-                    const randomOpen = Math.random() * 0.8 + 0.2; // 0.2 ~ 1.0
-                    // Live2D 입 파라미터 제어
-                    live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', randomOpen);
-                }, 100);
-            }
-
-            const utterance = new SpeechSynthesisUtterance(text);
-            utterance.lang = 'ko-KR';
-            window.speechSynthesis.speak(utterance);
-            
-            utterance.onend = () => {
-                document.getElementById('status-text').innerText = "같이 둘러보자!";
-                
-                // [NEW] 말 끝나면 입 다물기
-                if (talkingInterval) {
-                    clearInterval(talkingInterval);
-                    if(live2dModel) live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0);
-                }
-            };
-        }
-
         function addMessage(text, type) {
             const div = document.createElement('div');
             if(type === 'system') div.className = 'system-msg';
@@ -354,14 +374,12 @@
         function renderButtons(buttons) {
             const navContainer = document.getElementById('nav-container');
             const choiceContainer = document.getElementById('choice-container');
-            
             navContainer.innerHTML = '';
             choiceContainer.innerHTML = '';
 
             buttons.forEach(btn => {
                 const buttonEl = document.createElement('button');
                 buttonEl.innerText = btn.text;
-                
                 buttonEl.onclick = () => {
                     if (btn.type === 'move') setZone(btn.target);
                     else handleUserInput(btn.text, btn.key, btn.answers);
@@ -383,9 +401,7 @@
             currentZoneId = zoneId;
             const zoneConfig = zones[zoneId];
             document.getElementById('zone-name').innerText = zoneConfig.name;
-            // document.getElementById('char-icon').innerText = zoneConfig.icon; // 제거됨
             addMessage(`[시스템] ${zoneConfig.name} 도착!`, 'system');
-            
             renderButtons(zoneConfig.buttons);
             clearTimeout(idleTimer);
             idleTimer = setTimeout(triggerIdleMessage, 20000);
