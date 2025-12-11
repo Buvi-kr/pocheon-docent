@@ -20,23 +20,40 @@
             position: fixed;
             top: 0; left: 0;
             width: 100%; height: 100%;
-            z-index: 1; /* 배경보다 위, UI보다 아래 */
+            z-index: 1; 
             display: block;
         }
 
-        /* --- 3. 왼쪽 상단 HUD (대화 로그) --- */
+        /* --- 3. 왼쪽 상단 HUD (대화 로그 - 스크롤 버전) --- */
         .hud-area {
             position: fixed;
             top: 20px;
             left: 20px;
+            
+            /* [수정] 스크롤을 위한 높이 제한 및 설정 */
+            height: 40vh; /* 화면 높이의 40% 사용 */
             width: calc(100% - 40px);
             max-width: 350px;
+            
             z-index: 10;
             display: flex;
             flex-direction: column;
             gap: 10px;
-            pointer-events: none;
+            
+            /* [수정] 스크롤 활성화 */
+            overflow-y: auto;
+            pointer-events: auto; /* 터치/스크롤 가능하게 변경 */
+            
+            /* 스크롤바 숨김 처리 (깔끔하게) */
+            -ms-overflow-style: none; /* IE, Edge */
+            scrollbar-width: none; /* Firefox */
+            
+            /* 상단 페이드 아웃 효과 (자연스럽게 보이도록) */
+            mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
+            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
         }
+        
+        .hud-area::-webkit-scrollbar { display: none; } /* Chrome, Safari 스크롤바 숨김 */
 
         .zone-badge {
             align-self: flex-start;
@@ -49,6 +66,7 @@
             font-weight: bold;
             backdrop-filter: blur(5px);
             box-shadow: 0 0 10px rgba(79, 195, 247, 0.3);
+            flex-shrink: 0; /* 배지는 스크롤되더라도 찌그러지지 않게 */
         }
 
         .chat-bubble {
@@ -62,6 +80,7 @@
             box-shadow: 0 4px 15px rgba(0,0,0,0.3);
             animation: slideIn 0.4s ease-out;
             border-left: 3px solid transparent;
+            flex-shrink: 0; /* 버블 형태 유지 */
         }
 
         .chat-bubble.user {
@@ -78,7 +97,7 @@
 
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* --- 4. 하단 컨트롤 영역 (버튼 + 입력창) --- */
+        /* --- 4. 하단 컨트롤 영역 --- */
         .bottom-container {
             position: fixed;
             bottom: 0;
@@ -200,7 +219,7 @@
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
-                resizeModel();
+                resizeModel(); // [중요] 모델 크기/위치 초기화
 
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
@@ -214,21 +233,31 @@
             } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
+        // [수정] 모델 리사이징 로직 (상반신 위주 앵글 - 옵션 B)
         function resizeModel() {
             if (!live2dModel) return;
+            
             const isMobile = window.innerWidth < 600;
-            const scale = isMobile ? 0.35 : 0.3; 
+            
+            // 기존 0.35에서 대폭 확대 -> 가슴~머리까지 꽉 차게 나옴
+            // 모바일은 좀 더 가까이(1.5), PC는 적당히(1.3)
+            const scale = isMobile ? 1.5 : 1.3; 
+            
             live2dModel.scale.set(scale);
-            live2dModel.anchor.set(0.5);
+            live2dModel.anchor.set(0.5); // 중심점은 모델의 가운데
+            
             live2dModel.x = window.innerWidth / 2;
-            live2dModel.y = window.innerHeight * 0.55; 
+            
+            // Y축 위치 조정: 
+            // anchor가 0.5(중앙)이므로, 1.0이면 화면 바닥이 모델의 허리춤.
+            // 0.9 정도로 설정하면 상반신이 자연스럽게 나옴.
+            live2dModel.y = window.innerHeight * 0.9; 
         }
 
         window.addEventListener('resize', resizeModel);
         initLive2D();
 
         // --- 도슨트 로직 ---
-        const basicInfo = `[천문과학관 기본 정보]... (knowledge.js 활용)`;
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -280,16 +309,18 @@
         const hudContainer = document.getElementById('hud-container');
         const zoneBadge = document.getElementById('zone-badge');
 
+        // [수정] 스크롤 기능 추가 (삭제 로직 제거 + 자동 스크롤)
         function addMessage(text, type) {
             const bubble = document.createElement('div');
             bubble.className = `chat-bubble ${type}`;
             let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
             bubble.innerHTML = formatted;
+            
             hudContainer.appendChild(bubble);
 
-            while (hudContainer.querySelectorAll('.chat-bubble').length > 2) {
-                hudContainer.removeChild(hudContainer.querySelector('.chat-bubble'));
-            }
+            // [삭제됨] 기존의 메시지 삭제 로직(while문) 제거
+            // [추가됨] 새 메시지가 오면 스크롤을 맨 아래로 이동
+            hudContainer.scrollTop = hudContainer.scrollHeight;
         }
 
         window.setZone = (zoneId) => {
@@ -332,10 +363,8 @@
                 return;
             }
 
-            // [중요 변경됨] 가짜 API 대신 진짜 API 호출로 변경
             addMessage("잠시만... 생각 좀 해볼게!", 'ai'); 
             
-            // 여기서 knowledge.js의 데이터를 가져와서 프롬프트에 섞어줄 수 있음
             let contextData = "";
             if (dataKey) {
                 const item = exhibitionData.find(d => d.id === dataKey);
@@ -355,10 +384,8 @@
             if(live2dModel) try { live2dModel.motion('TapBody'); } catch(e){}
         }
 
-        // [핵심] 진짜 API 호출 함수 (Vercel Serverless Function 연결)
         async function callGeminiAPI(text, systemPrompt) {
             try {
-                // api/chat.js 로 POST 요청
                 const response = await fetch('/api/chat', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
