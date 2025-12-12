@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
 
     <style>
-        /* --- 스타일은 기존과 동일 --- */
+        /* --- 기본 스타일 (변경 없음) --- */
         body { margin: 0; padding: 0; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; height: 100vh; height: 100dvh; }
         .background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at bottom, #1a237e 0%, #000000 80%); }
         .stars { position: fixed; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.5; z-index: 0; pointer-events: none; }
@@ -88,8 +88,7 @@
         <div class="zone-badge" id="zone-badge">🏛️ 로비</div>
         <div class="chat-bubble ai">
             안녕! 나는 히요리야! 🐰<br>
-            포천아트밸리 천문과학관에 온 걸 환영해.<br>
-            별이나 우주에 대해 궁금한 거 있어?
+            궁금한 게 있으면 말로 물어봐도 돼!
         </div>
     </div>
 
@@ -97,7 +96,7 @@
         <div class="choice-scroll-area" id="choice-container"></div>
         <div class="input-bar">
             <button class="icon-btn" id="mic-btn">🎙️</button>
-            <input type="text" class="input-box" id="text-input" placeholder="천문학 질문만 해주세요..." autocomplete="off">
+            <input type="text" class="input-box" id="text-input" placeholder="여기에 질문을 입력하세요..." autocomplete="off">
             <button class="icon-btn" id="send-btn">➤</button>
         </div>
     </div>
@@ -109,6 +108,7 @@
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
         let live2dApp = null;
         let live2dModel = null;
+        let mouthInterval = null; // 입 움직임 제어용 변수
 
         async function initLive2D() {
             try {
@@ -126,10 +126,13 @@
 
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
+                
+                // 터치 시 반응
                 live2dModel.on('pointertap', () => {
+                    setExpression("happy");
                     live2dModel.motion('TapBody');
-                    addMessage("헤헤, 우주는 정말 신비로워!", 'ai'); 
-                    speak("헤헤, 우주는 정말 신비로워!");
+                    addMessage("헤헤, 간지러워!", 'ai'); 
+                    speak("헤헤, 간지러워!");
                 });
 
                 console.log("Live2D 초기화 완료");
@@ -141,7 +144,6 @@
             const isMobile = window.innerWidth < 800; 
             live2dModel.anchor.set(0.5, 0);
             live2dModel.x = window.innerWidth / 2;
-
             if (isMobile) {
                 live2dModel.scale.set(0.45);
                 live2dModel.y = window.innerHeight * 0.15;
@@ -150,9 +152,28 @@
                 live2dModel.y = window.innerHeight * 0.05;
             }
         }
-
         window.addEventListener('resize', resizeModel);
         initLive2D();
+
+        // --- [NEW] 감정 표현 함수 ---
+        // Hiyori 모델의 기본 내장 표정(Expressions) 사용
+        function setExpression(emotion) {
+            if (!live2dModel) return;
+            // emotion: "happy", "sad", "angry", "neutral"
+            // Hiyori 샘플 모델 매핑 (f01:웃음, f02:슬픔, f03:화남, f04:놀람...)
+            let expId = "";
+            switch(emotion) {
+                case "happy": expId = "f01"; break;
+                case "joy": expId = "f01"; break;
+                case "sad": expId = "f02"; break;
+                case "angry": expId = "f03"; break;
+                case "surprise": expId = "f04"; break;
+                default: expId = "f01"; // 기본 웃는 얼굴
+            }
+            try {
+                live2dModel.expression(expId); // 표정 변경
+            } catch(e) { console.log("표정 변경 실패(모델 미지원):", e); }
+        }
 
         // --- 위키백과 검색 ---
         async function searchWikipedia(query) {
@@ -172,14 +193,53 @@
                 const pages = data.query.pages;
                 const pageId = Object.keys(pages)[0];
                 if (pageId === "-1") return null;
-
                 let content = pages[pageId].extract;
                 if (content.length > 300) content = content.substring(0, 300) + "...";
                 return content;
             } catch (e) { return null; }
         }
 
-        // --- 도슨트 로직 (기존과 동일) ---
+        // --- [NEW] 음성 인식 (STT) ---
+        const micBtn = document.getElementById('mic-btn');
+        let recognition = null;
+
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.lang = 'ko-KR';
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            micBtn.onclick = () => {
+                if (micBtn.classList.contains('listening')) {
+                    recognition.stop();
+                } else {
+                    recognition.start();
+                }
+            };
+
+            recognition.onstart = () => {
+                micBtn.classList.add('listening');
+                document.getElementById('text-input').placeholder = "듣고 있어요... 👂";
+            };
+
+            recognition.onend = () => {
+                micBtn.classList.remove('listening');
+                document.getElementById('text-input').placeholder = "질문을 입력하세요...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                document.getElementById('text-input').value = transcript;
+                handleUserInput(transcript); // 자동 전송
+            };
+        } else {
+            micBtn.style.display = 'none'; // 지원 안 하면 버튼 숨김
+            console.log("이 브라우저는 음성 인식을 지원하지 않습니다.");
+        }
+
+
+        // --- 도슨트 로직 (기존 유지) ---
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -267,13 +327,13 @@
             });
         }
 
-        // --- ★ [철벽 방어 수정] 사용자 입력 처리 ---
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
             if (answers) {
                 const ans = answers[Math.floor(Math.random() * answers.length)];
                 setTimeout(() => { 
+                    setExpression("happy");
                     addMessage(ans, 'ai'); 
                     speak(ans); 
                     if(live2dModel) try { live2dModel.motion('TapBody'); } catch(e){}
@@ -283,7 +343,7 @@
 
             addMessage("잠시만... 히요리가 찾아보고 있어! 🔍", 'ai'); 
             
-            // 1. 전시물 DB 확인
+            // 데이터 검색 로직
             let contextSource = "";
             let contextData = "";
             let foundItem = null;
@@ -293,44 +353,57 @@
 
             if (foundItem) {
                 contextSource = "과학관 전시물 정보";
-                contextData = `
-                    [전시물 정보]
-                    제목: ${foundItem.title}
-                    내용: ${foundItem.description.basic} / ${foundItem.description.advanced}
-                    팩트: ${foundItem.facts.join(', ')}
-                `;
+                contextData = `[전시물 정보] 제목:${foundItem.title}, 내용:${foundItem.description.basic}`;
             } else {
-                // 2. DB에 없으면 위키백과 검색
                 const wikiResult = await searchWikipedia(text);
                 if (wikiResult) {
                     contextSource = "위키백과";
-                    contextData = `[위키백과 검색 결과]: ${wikiResult}`;
+                    contextData = `[위키백과]: ${wikiResult}`;
                 }
             }
 
-            // 3. ★ 핵심: Gemini에게 강력한 제약조건(Constraint) 걸기
+            // ★ [JSON 요청] 감정과 답변을 분리해서 받기
             const prompt = `
                 ${zones[currentZoneId].basePrompt}
-
-                [사용자 질문]: "${text}"
-                
+                [질문]: "${text}"
                 ${contextData ? `[참고 자료(${contextSource})]: ${contextData}` : "[참고 자료 없음]"}
                 
-                ★[절대 지침 - 어기면 안됨]★
-                1. 너는 포천아트밸리 천문과학관의 AI 도슨트 '히요리'야.
-                2. [참고 자료]가 있다면 그 내용을 바탕으로 쉽고 친절하게(반말) 설명해.
-                3. [참고 자료]가 없더라도, 질문이 '천문학', '우주', '과학관', '별자리', '행성' 등과 관련되었다면 너의 지식으로 답변해.
-                4. 🚫 **중요: 질문이 '요리(김치찌개 등)', '게임', '연예인', '정치', '인생상담' 등 천문/과학과 전혀 상관없는 주제라면 단호하게 거절해.**
-                   (예시: "미안해! 나는 우주랑 별에 대해서만 이야기할 수 있어. 🌌")
-                5. 🚫 **중요: [참고 자료]도 없고, 너도 정확히 모르는 천문학 지식이면 "그건 아직 내가 배우지 못한 내용이야. 더 공부할게!"라고 솔직하게 말해. 절대 지어내지 마.**
-                6. 답변은 3문장 이내로 짧게.
+                ★지침★
+                1. 너는 포천아트밸리 천문과학관의 귀여운 AI 도슨트 '히요리'야.
+                2. 답변 형식은 반드시 **JSON**이어야 해. 예시: {"emotion": "happy", "reply": "안녕! 반가워!"}
+                3. emotion 종류: "happy"(기쁨), "sad"(슬픔), "surprise"(놀람), "neutral"(평범), "angry"(거절)
+                4. 천문학/과학관 질문이 아니면 emotion="angry", reply="그건 내가 대답해줄 수 없는 질문이야." 라고 해.
+                5. 답변은 3문장 이내 반말.
             `;
 
-            const reply = await callGeminiAPI(text, prompt);
-            
-            addMessage(reply, 'ai');
-            speak(reply);
-            if(live2dModel) try { live2dModel.motion('TapBody'); } catch(e){}
+            try {
+                // API 호출 및 JSON 파싱
+                const responseData = await callGeminiAPI(text, prompt);
+                let result = {};
+                
+                // Gemini가 가끔 JSON 앞뒤에 ```json```을 붙이는 경우 제거
+                const cleanJson = responseData.replace(/```json|```/g, "").trim();
+                
+                try {
+                    result = JSON.parse(cleanJson);
+                } catch (e) {
+                    // JSON 파싱 실패 시 일반 텍스트로 처리
+                    result = { emotion: "neutral", reply: responseData };
+                }
+
+                // 표정 변경 -> 답변 출력 -> 말하기
+                setExpression(result.emotion || "neutral");
+                addMessage(result.reply, 'ai');
+                speak(result.reply);
+                
+                if(live2dModel) {
+                    // 감정에 따라 모션도 다르게 (happy면 탭모션)
+                    if(result.emotion === "happy") live2dModel.motion('TapBody');
+                }
+
+            } catch (err) {
+                addMessage("오류가 났어 ㅠㅠ", 'ai');
+            }
         }
 
         async function callGeminiAPI(text, systemPrompt) {
@@ -341,25 +414,48 @@
                     body: JSON.stringify({ message: text, systemPrompt: systemPrompt })
                 });
                 const data = await response.json();
-                if (data.error) return "앗, 머리가 좀 아파... 다시 물어봐줄래?";
-                return data.reply || "대답을 못 찾겠어 ㅠㅠ";
+                if (data.error) return JSON.stringify({ emotion: "sad", reply: "API 오류가 발생했어." });
+                return data.reply;
             } catch (err) {
-                return "인터넷 연결이 좀 불안한 것 같아!";
+                return JSON.stringify({ emotion: "sad", reply: "인터넷 연결을 확인해줘." });
             }
         }
 
+        // --- [UPDATE] TTS & 입모양 동기화 개선 ---
         function speak(text) {
-            window.speechSynthesis.cancel();
+            window.speechSynthesis.cancel(); // 기존 음성 중단
+
+            // 1. 목소리 설정
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ko-KR';
-            window.speechSynthesis.speak(utterance);
-            let interval = setInterval(() => {
-                if (live2dModel) try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', Math.random()); } catch(e){}
-            }, 100);
-            utterance.onend = () => {
-                clearInterval(interval);
-                if (live2dModel) try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); } catch(e){}
+            utterance.pitch = 1.4; // ★ 톤을 높여서 아이/여자 목소리처럼
+            utterance.rate = 1.1;  // ★ 속도를 약간 빠르게
+
+            // 2. 입 움직임 시작 (Start)
+            // 기존 interval 제거
+            if (mouthInterval) clearInterval(mouthInterval);
+
+            utterance.onstart = () => {
+                mouthInterval = setInterval(() => {
+                    if (live2dModel) {
+                        // 입을 랜덤하게 벌림 (0.0 ~ 1.0)
+                        try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', Math.random() * 0.8); } catch(e){}
+                    }
+                }, 100);
             };
+
+            // 3. 말 끝나면 입 다물기 (End)
+            utterance.onend = () => {
+                if (mouthInterval) {
+                    clearInterval(mouthInterval);
+                    mouthInterval = null;
+                }
+                if (live2dModel) {
+                    try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); } catch(e){}
+                }
+            };
+
+            window.speechSynthesis.speak(utterance);
         }
 
         const textInput = document.getElementById('text-input');
