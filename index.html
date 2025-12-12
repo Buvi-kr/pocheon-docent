@@ -10,11 +10,15 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
 
     <style>
-        /* --- 스타일 (기존과 동일) --- */
+        /* --- 1. 전체 레이아웃 & 배경 --- */
         body { margin: 0; padding: 0; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; height: 100vh; height: 100dvh; }
         .background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at bottom, #1a237e 0%, #000000 80%); }
         .stars { position: fixed; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.5; z-index: 0; pointer-events: none; }
+
+        /* --- 2. Live2D 캔버스 --- */
         #live2d-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
+
+        /* --- 3. HUD (대화창) --- */
         .hud-area {
             position: fixed; top: 20px; left: 20px; height: 35vh; width: calc(100% - 40px); max-width: 350px; z-index: 10;
             display: flex; flex-direction: column; gap: 10px; overflow-y: auto; pointer-events: auto;
@@ -23,11 +27,13 @@
             -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
         }
         .hud-area::-webkit-scrollbar { display: none; }
+
         .zone-badge {
             align-self: flex-start; background: rgba(79, 195, 247, 0.2); border: 1px solid #4fc3f7; color: #4fc3f7;
             padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;
             backdrop-filter: blur(5px); box-shadow: 0 0 10px rgba(79, 195, 247, 0.3); flex-shrink: 0; 
         }
+
         .chat-bubble {
             background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); border-radius: 15px; padding: 15px; color: #fff;
             font-size: 0.95rem; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
@@ -36,24 +42,30 @@
         .chat-bubble.user { border-left-color: #ff9800; align-self: flex-start; background: rgba(0, 0, 0, 0.4); color: #ffd180; }
         .chat-bubble.ai { border-left-color: #4fc3f7; align-self: flex-start; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
+
+        /* --- 4. 하단 컨트롤 영역 --- */
         .bottom-container {
             position: fixed; bottom: 0; left: 0; width: 100%; z-index: 20;
             display: flex; flex-direction: column; align-items: center;
             padding-bottom: max(20px, env(safe-area-inset-bottom)); 
             background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
         }
+
         .choice-scroll-area {
             width: 100%; overflow-x: auto; white-space: nowrap; padding: 10px 15px; box-sizing: border-box;
             -webkit-overflow-scrolling: touch; scrollbar-width: none; display: flex; gap: 10px; justify-content: center;
         }
         .choice-scroll-area::-webkit-scrollbar { display: none; }
+
         .choice-btn {
             background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255,255,255,0.3); color: white;
             padding: 10px 20px; border-radius: 25px; font-size: 0.9rem; cursor: pointer; backdrop-filter: blur(5px); transition: 0.2s;
         }
         .choice-btn:active { transform: scale(0.95); background: #4fc3f7; color: black; border-color: #4fc3f7; }
         .choice-btn.move { border-color: #ff9800; color: #ff9800; background: rgba(255, 152, 0, 0.1); }
+
         .input-bar { width: calc(100% - 30px); max-width: 600px; display: flex; gap: 10px; margin-top: 5px; }
+
         .input-box {
             flex: 1; background: rgba(40, 40, 40, 0.8); border: 1px solid #555; border-radius: 25px;
             padding: 12px 20px; color: white; font-size: 1rem; outline: none; backdrop-filter: blur(5px);
@@ -66,12 +78,23 @@
         #mic-btn.listening { background: #4caf50; box-shadow: 0 0 15px #4caf50; animation: pulse 1.5s infinite; }
         #send-btn { background: rgba(63, 81, 181, 0.8); }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
+
+        /* --- 5. [NEW] 디버그 콘솔 (오른쪽 상단) --- */
+        #debug-box {
+            position: fixed; top: 10px; right: 10px; width: 300px; height: auto; max-height: 400px;
+            background: rgba(0, 0, 0, 0.85); border: 1px solid #00ff00; color: #00ff00;
+            font-family: 'Consolas', monospace; font-size: 11px; padding: 10px; z-index: 1000;
+            overflow-y: auto; pointer-events: none; /* 클릭 통과 */
+            white-space: pre-wrap; border-radius: 5px;
+        }
     </style>
 </head>
 <body>
     <div class="background"></div>
     <div class="stars"></div>
     <canvas id="live2d-canvas"></canvas>
+
+    <div id="debug-box">🔧 시스템 준비 중...</div>
 
     <div class="hud-area" id="hud-container">
         <div class="zone-badge" id="zone-badge">🏛️ 로비</div>
@@ -94,11 +117,20 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- [UPDATE] 하루(Haru) 모델로 교체 ---
+        // --- Live2D 설정 (하루 모델) ---
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Haru/Haru.model3.json';
         let live2dApp = null;
         let live2dModel = null;
         let mouthInterval = null;
+
+        // ★ 디버그 로그 함수
+        function logDebug(title, data) {
+            const box = document.getElementById('debug-box');
+            let text = `[${title}]\n`;
+            if (typeof data === 'object') text += JSON.stringify(data, null, 2);
+            else text += data;
+            box.innerText = text + "\n----------------\n" + box.innerText;
+        }
 
         async function initLive2D() {
             try {
@@ -119,14 +151,14 @@
                 
                 // 터치 시 반응
                 live2dModel.on('pointertap', () => {
-                    setExpression("happy"); 
-                    live2dModel.motion('TapBody'); // 하루는 TapBody 모션이 있습니다
-                    addMessage("헤헤, 우주는 정말 신비로워!", 'ai'); 
+                    setExpression("happy");
+                    live2dModel.motion('TapBody');
                     speak("헤헤, 우주는 정말 신비로워!");
+                    logDebug("EVENT", "터치 발생 -> Happy 표정");
                 });
 
-                console.log("Live2D(Haru) 초기화 완료");
-            } catch (e) { console.error("Live2D 로드 실패:", e); }
+                logDebug("SYSTEM", "Live2D(Haru) 초기화 완료");
+            } catch (e) { console.error(e); logDebug("ERROR", "Live2D 로드 실패: " + e.message); }
         }
 
         function resizeModel() {
@@ -135,7 +167,6 @@
             live2dModel.anchor.set(0.5, 0);
             live2dModel.x = window.innerWidth / 2;
             if (isMobile) {
-                // 하루는 키가 좀 커서 비율 조정
                 live2dModel.scale.set(0.42);
                 live2dModel.y = window.innerHeight * 0.15;
             } else {
@@ -146,47 +177,32 @@
         window.addEventListener('resize', resizeModel);
         initLive2D();
 
-        // --- [UPDATE] 진짜 표정(Expression) 변경 함수 ---
-        // 하루는 expressions 폴더가 있으므로 이게 작동합니다!
+        // --- 표정 변경 (하루 전용) ---
         function setExpression(emotion) {
             if (!live2dModel) return;
 
-            // Haru 모델 파일명 기준 매핑 (F01 ~ F08)
             let expId = "F01"; // 기본: 웃음
-            
+            let debugMsg = "기본(F01)";
+
             switch(emotion) {
                 case "happy": 
-                case "joy":
-                    expId = "F01"; // Smile
-                    break;
-                case "sad":
-                    expId = "F08"; // Trouble/Sadness (F05도 슬픔일 수 있음)
-                    break;
+                case "joy": expId = "F01"; debugMsg="F01(Smile)"; break;
+                case "sad": expId = "F08"; debugMsg="F08(Sad/Trouble)"; break;
                 case "angry":
-                case "serious":
-                    expId = "F04"; // Anger/Serious
-                    break;
-                case "surprise":
-                    expId = "F06"; // Surprise (추정)
-                    break;
-                case "shy":
-                    expId = "F03"; // Shy
-                    break;
-                default:
-                    expId = "F01";
+                case "serious": expId = "F04"; debugMsg="F04(Angry)"; break;
+                case "surprise": expId = "F06"; debugMsg="F06(Surprise)"; break;
+                case "shy": expId = "F03"; debugMsg="F03(Shy)"; break;
+                default: expId = "F01";
             }
 
             try {
-                // 1. 표정 변경
                 live2dModel.expression(expId);
+                // 모션도 랜덤으로 살짝 섞어줌 (너무 정적이지 않게)
+                const rand = Math.random();
+                if(rand > 0.7) live2dModel.motion('TapBody'); 
                 
-                // 2. 몸짓도 같이 하면 더 자연스러움 (랜덤 모션)
-                // 하루는 m01~m26까지 모션이 많습니다.
-                const randomMotion = Math.floor(Math.random() * 26) + 1; // 1~26
-                // live2dModel.motion('TapBody'); // 기본 탭 모션
-            } catch(e) { 
-                console.log("표정 변경 실패:", e); 
-            }
+                logDebug("EXPRESSION", `감정:${emotion} -> 표정:${debugMsg}`);
+            } catch(e) { logDebug("EXP_ERROR", e); }
         }
 
         // --- 위키백과 검색 ---
@@ -208,7 +224,7 @@
                 const pageId = Object.keys(pages)[0];
                 if (pageId === "-1") return null;
                 let content = pages[pageId].extract;
-                if (content.length > 300) content = content.substring(0, 300) + "...";
+                if (content.length > 200) content = content.substring(0, 200) + "...";
                 return content;
             } catch (e) { return null; }
         }
@@ -225,16 +241,14 @@
             recognition.interimResults = false;
 
             micBtn.onclick = () => {
-                if (micBtn.classList.contains('listening')) {
-                    recognition.stop();
-                } else {
-                    recognition.start();
-                }
+                if (micBtn.classList.contains('listening')) recognition.stop();
+                else recognition.start();
             };
 
             recognition.onstart = () => {
                 micBtn.classList.add('listening');
                 document.getElementById('text-input').placeholder = "듣고 있어요... 👂";
+                logDebug("STT", "음성 인식 시작...");
             };
 
             recognition.onend = () => {
@@ -245,13 +259,14 @@
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 document.getElementById('text-input').value = transcript;
+                logDebug("STT Result", transcript);
                 handleUserInput(transcript);
             };
         } else {
             micBtn.style.display = 'none';
         }
 
-        // --- 도슨트 로직 ---
+        // --- 도슨트 로직 (전체 복구됨) ---
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -319,6 +334,7 @@
             addMessage(`${config.name}에 도착했어!`, 'ai');
             speak(`${config.name}에 도착했어!`);
             renderButtons(config.buttons);
+            logDebug("ZONE", `이동: ${config.name}`);
         };
 
         function renderButtons(buttons) {
@@ -339,6 +355,7 @@
             });
         }
 
+        // --- ★ 메인 로직 (Gemini 호출) ---
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
@@ -372,7 +389,7 @@
                 }
             }
 
-            // [UPDATE] 하루(Haru) 페르소나 적용
+            // 프롬프트 (JSON 강제)
             const prompt = `
                 ${zones[currentZoneId].basePrompt}
                 [질문]: "${text}"
@@ -380,20 +397,27 @@
                 
                 ★지침★
                 1. 너는 포천아트밸리 천문과학관의 AI 도슨트 '하루'야. 
-                2. 답변 형식은 **JSON**이어야 해. 예시: {"emotion": "happy", "reply": "응! 그건 말이야~"}
-                3. emotion 종류: "happy", "sad", "surprise", "angry", "shy"
-                4. 천문/과학 질문이 아니면 emotion="angry", reply="그건 내가 대답하기 곤란해." 라고 거절해.
-                5. 말투는 명랑하고 똑똑한 여학생 느낌의 반말. 3문장 이내.
+                2. 답변 형식은 반드시 **JSON**이어야 해. (마크다운 없이 순수 JSON만)
+                3. 예시: {"emotion": "happy", "reply": "응! 그건 말이야~"}
+                4. emotion 종류: "happy", "sad", "surprise", "angry", "shy"
+                5. 천문/과학 질문이 아니면 emotion="angry", reply="그건 내가 대답하기 곤란해." 라고 거절해.
+                6. 답변은 3문장 이내 반말.
             `;
 
             try {
                 const responseData = await callGeminiAPI(text, prompt);
+                
+                // --- JSON 파싱 및 디버그 ---
                 let result = {};
+                // Gemini가 가끔 ```json ... ``` 형태로 줄 때가 있어서 제거
                 const cleanJson = responseData.replace(/```json|```/g, "").trim();
                 
+                logDebug("GEMINI_RAW", cleanJson); // ★ 여기서 JSON 확인 가능!
+
                 try {
                     result = JSON.parse(cleanJson);
                 } catch (e) {
+                    logDebug("PARSE_ERROR", "JSON 형식이 깨짐 -> 일반 텍스트 처리");
                     result = { emotion: "neutral", reply: responseData };
                 }
 
@@ -402,7 +426,9 @@
                 speak(result.reply);
 
             } catch (err) {
+                console.error(err);
                 addMessage("오류가 났어 ㅠㅠ", 'ai');
+                logDebug("ERROR", err.message);
             }
         }
 
@@ -421,29 +447,33 @@
             }
         }
 
-        // --- TTS & 입모양 동기화 ---
+        // --- ★ [수정됨] 입모양 강제 동기화 ---
         function speak(text) {
             window.speechSynthesis.cancel(); 
 
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ko-KR';
-            utterance.pitch = 1.2; // 하루는 히요리보다 조금 더 차분해도 됨 (그래도 귀엽게)
+            utterance.pitch = 1.2; 
             utterance.rate = 1.1; 
 
             if (mouthInterval) clearInterval(mouthInterval);
+
             utterance.onstart = () => {
+                logDebug("TTS", "말하기 시작 (입벌림)");
+                // 50ms마다 강제로 입 모양 값을 랜덤하게 줌 (0.2 ~ 0.8)
                 mouthInterval = setInterval(() => {
                     if (live2dModel) {
-                        try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', Math.random() * 0.7); } catch(e){}
+                        try { 
+                            const val = Math.random() * 0.6 + 0.2; 
+                            live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val); 
+                        } catch(e){}
                     }
-                }, 100);
+                }, 50);
             };
 
             utterance.onend = () => {
-                if (mouthInterval) {
-                    clearInterval(mouthInterval);
-                    mouthInterval = null;
-                }
+                logDebug("TTS", "말하기 끝 (입다뭄)");
+                if (mouthInterval) { clearInterval(mouthInterval); mouthInterval = null; }
                 if (live2dModel) {
                     try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); } catch(e){}
                 }
