@@ -78,13 +78,12 @@
         #mic-btn.listening { background: #4caf50; box-shadow: 0 0 15px #4caf50; animation: pulse 1.5s infinite; }
         #send-btn { background: rgba(63, 81, 181, 0.8); }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
-
-        /* --- 5. 디버그 콘솔 --- */
+        
+        /* 디버그 창 (숨김 처리 원하면 display:none) */
         #debug-box {
-            position: fixed; top: 10px; right: 10px; width: 300px; height: auto; max-height: 400px;
-            background: rgba(0, 0, 0, 0.85); border: 1px solid #00ff00; color: #00ff00;
-            font-family: 'Consolas', monospace; font-size: 11px; padding: 10px; z-index: 1000;
-            overflow-y: auto; pointer-events: none; border-radius: 5px;
+            position: fixed; top: 10px; right: 10px; width: 250px; max-height: 200px;
+            background: rgba(0,0,0,0.7); color: lime; font-size: 10px; overflow-y: auto; pointer-events: none;
+            display: none; /* 깔끔하게 보이기 위해 일단 숨김 */
         }
     </style>
 </head>
@@ -93,14 +92,13 @@
     <div class="stars"></div>
     <canvas id="live2d-canvas"></canvas>
 
-    <div id="debug-box">🔧 시스템 준비 중...</div>
+    <div id="debug-box"></div>
 
     <div class="hud-area" id="hud-container">
         <div class="zone-badge" id="zone-badge">🏛️ 로비</div>
         <div class="chat-bubble ai">
-            안녕! 나는 AI 도슨트 '하루'야! 🌸<br>
-            포천아트밸리 천문과학관에 온 걸 환영해.<br>
-            궁금한 게 있으면 편하게 물어봐!
+            안녕! 나는 히요리야! 🐰<br>
+            포천아트밸리 천문과학관에 온 걸 환영해.
         </div>
     </div>
 
@@ -116,23 +114,17 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- Live2D 설정 (하루 모델) ---
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Haru/Haru.model3.json';
+        // --- 1. [복귀] 히요리(Hiyori) 모델 URL ---
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Hiyori/Hiyori.model3.json';
         let live2dApp = null;
         let live2dModel = null;
-        let mouthAnimId = null; // requestAnimationFrame ID
-
-        // 디버그 로그
-        function logDebug(title, data) {
-            const box = document.getElementById('debug-box');
-            let text = `[${title}]\n`;
-            if (typeof data === 'object') text += JSON.stringify(data, null, 2);
-            else text += data;
-            box.innerText = text + "\n----------------\n" + box.innerText;
-        }
+        let mouthAnimId = null;
 
         async function initLive2D() {
             try {
+                // ★ 일본어 음성 제거 (필수)
+                PIXI.live2d.SoundManager.volume = 0; 
+
                 live2dApp = new PIXI.Application({
                     view: document.getElementById('live2d-canvas'),
                     autoStart: true, resizeTo: window, backgroundAlpha: 0 
@@ -152,16 +144,8 @@
                     speak("헤헤, 우주는 정말 신비로워!");
                 });
 
-                // ★ [핵심] 로딩 완료 후 '웃는 표정(F01)' 영구 고정
-                setTimeout(() => {
-                    if(live2dModel) {
-                        try { live2dModel.expression("F01"); } catch(e){}
-                        logDebug("INIT", "기본 표정(F01) 설정 완료");
-                    }
-                }, 1000);
-
-                logDebug("SYSTEM", "Live2D(Haru) 초기화 완료");
-            } catch (e) { console.error(e); logDebug("ERROR", "Live2D 로드 실패: " + e.message); }
+                console.log("Live2D(Hiyori) 초기화 완료");
+            } catch (e) { console.error("Live2D 로드 실패:", e); }
         }
 
         function resizeModel() {
@@ -169,27 +153,29 @@
             const isMobile = window.innerWidth < 800; 
             live2dModel.anchor.set(0.5, 0);
             live2dModel.x = window.innerWidth / 2;
+            
+            // ★ 히요리는 키가 작아서 조금 더 크게 설정
             if (isMobile) {
-                live2dModel.scale.set(0.42);
+                live2dModel.scale.set(0.45);
                 live2dModel.y = window.innerHeight * 0.15;
             } else {
-                live2dModel.scale.set(0.50);
+                live2dModel.scale.set(0.55);
                 live2dModel.y = window.innerHeight * 0.05;
             }
         }
         window.addEventListener('resize', resizeModel);
         initLive2D();
 
-        // --- 동작 (심플) ---
+        // --- 2. 심플 동작 (표정 X, 동작 O) ---
         function performMotion() {
             if(!live2dModel) return;
             try {
-                // 하루 모델의 기본 제스처 'TapBody' 하나만 사용
+                // 히요리 모델의 기본 동작 'TapBody' 하나만 사용
                 live2dModel.motion('TapBody');
             } catch(e) {}
         }
 
-        // --- 위키백과 검색 ---
+        // --- 3. 위키백과 검색 ---
         async function searchWikipedia(query) {
             const cleanQuery = query.replace(/(이|가|은|는|을|를)?\s*(뭐야|알려줘|어떻게|왜|있어|없어|설명해줘|궁금해|\?|\.|!)+/g, "").trim();
             if (cleanQuery.length < 1) return null;
@@ -213,7 +199,7 @@
             } catch (e) { return null; }
         }
 
-        // --- 음성 인식 (STT) ---
+        // --- 4. 음성 인식 (STT) ---
         const micBtn = document.getElementById('mic-btn');
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -246,7 +232,7 @@
             micBtn.style.display = 'none';
         }
 
-        // --- 도슨트 데이터 (버튼 포함) ---
+        // --- 5. [복구 완료] 도슨트 데이터 & 버튼 ---
         const zones = {
             'lobby': {
                 name: "로비 (1F)",
@@ -313,16 +299,12 @@
             zoneBadge.innerText = `📍 ${config.name}`;
             addMessage(`${config.name}에 도착했어!`, 'ai');
             speak(`${config.name}에 도착했어!`);
-            
-            // ★ [복구] 버튼 렌더링 로직
-            renderButtons(config.buttons);
-            logDebug("ZONE", config.name);
+            renderButtons(config.buttons); // ★ 버튼 그리기 복구
         };
 
         function renderButtons(buttons) {
             const container = document.getElementById('choice-container');
             container.innerHTML = '';
-            // 버튼이 적으면 가운데 정렬, 많으면 왼쪽 정렬
             if(buttons.length < 3) container.style.justifyContent = 'center';
             else container.style.justifyContent = 'flex-start';
 
@@ -338,21 +320,21 @@
             });
         }
 
-        // --- 메인 핸들러 (Gemini + 텍스트) ---
+        // --- 6. 메인 핸들러 (텍스트 기반) ---
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
             if (answers) {
                 const ans = answers[Math.floor(Math.random() * answers.length)];
                 setTimeout(() => { 
-                    performMotion();
+                    performMotion(); // 동작 수행
                     addMessage(ans, 'ai'); 
                     speak(ans); 
                 }, 500);
                 return;
             }
 
-            addMessage("잠시만... 하루가 찾아볼게! 🔍", 'ai'); 
+            addMessage("잠시만... 히요리가 찾아볼게! 🔍", 'ai'); 
             
             let contextData = "";
             let contextSource = "";
@@ -372,23 +354,22 @@
                 }
             }
 
-            // ★ [심플 프롬프트] 감정 빼고, 텍스트만 요청
+            // ★ JSON 요청 금지. 그냥 텍스트만.
             const prompt = `
                 ${zones[currentZoneId].basePrompt}
                 [질문]: "${text}"
                 ${contextData ? `[참고 자료(${contextSource})]: ${contextData}` : "[참고 자료 없음]"}
                 
                 ★지침★
-                1. 너는 포천아트밸리 천문과학관의 AI 도슨트 '하루'야. 
-                2. 그냥 자연스러운 반말(3문장 이내)로 답변해. (JSON 금지)
+                1. 너는 포천아트밸리 천문과학관의 AI 도슨트 '히요리'야. 
+                2. 그냥 자연스러운 반말(3문장 이내)로 답변해.
                 3. 천문/과학 질문이 아니면 "그건 내가 대답하기 곤란해."라고 거절해.
             `;
 
             try {
                 const replyText = await callGeminiAPI(text, prompt);
                 
-                // 감정 로직 삭제됨 -> 무조건 기본 동작
-                performMotion(); 
+                performMotion(); // 동작 실행
                 addMessage(replyText, 'ai');
                 speak(replyText);
 
@@ -413,13 +394,13 @@
             }
         }
 
-        // --- ★ [NEW] 부드러운 입 모양 (Sine Wave) ---
+        // --- 7. 부드러운 입 모양 (Sine Wave) ---
         function speak(text) {
             window.speechSynthesis.cancel(); 
 
             const utterance = new SpeechSynthesisUtterance(text);
             utterance.lang = 'ko-KR';
-            utterance.pitch = 1.2; 
+            utterance.pitch = 1.3; // 히요리는 조금 더 높은 톤
             utterance.rate = 1.1; 
 
             // 기존 애니메이션 루프 취소
@@ -429,44 +410,38 @@
             }
 
             utterance.onstart = () => {
-                logDebug("TTS", "말하기 시작");
                 const startTime = Date.now();
 
-                // 부드러운 입 모양 애니메이션 함수
+                // 부드러운 입 모양 애니메이션
                 function animateMouth() {
                     if (!live2dModel) return;
                     
                     const now = Date.now();
-                    // Math.sin을 이용해 0~1 사이를 부드럽게 오가는 파동 생성
-                    // 속도 조절: now / 150 (숫자가 클수록 느려짐)
+                    // 속도 조절: now / 150
                     const value = (Math.sin(now / 150) + 1) / 2; 
                     
-                    // 입 벌림 정도 조절 (0.2 ~ 0.8 사이로 움직임)
-                    const mouthOpen = value * 0.6 + 0.2; 
+                    // 입 벌림 정도 조절 (0.2 ~ 0.7)
+                    const mouthOpen = value * 0.5 + 0.2; 
 
                     try {
                         live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', mouthOpen);
-                        // ParamMouthOpen 도 같이 줘서 호환성 확보
-                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpen', mouthOpen);
                     } catch(e) {}
 
                     mouthAnimId = requestAnimationFrame(animateMouth);
                 }
                 
-                animateMouth(); // 애니메이션 시작
+                animateMouth();
             };
 
             utterance.onend = () => {
-                logDebug("TTS", "말하기 끝");
                 if (mouthAnimId) {
                     cancelAnimationFrame(mouthAnimId);
                     mouthAnimId = null;
                 }
-                // 입 확실하게 닫기
+                // 입 닫기
                 if (live2dModel) {
                     try { 
                         live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); 
-                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpen', 0); 
                     } catch(e){}
                 }
             };
