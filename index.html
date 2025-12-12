@@ -10,82 +10,36 @@
     <script src="https://cdn.jsdelivr.net/npm/pixi-live2d-display@0.4.0/dist/cubism4.min.js"></script>
 
     <style>
-        /* --- 1. 전체 레이아웃 & 배경 --- */
+        /* --- 기본 스타일 --- */
         body { margin: 0; padding: 0; background: #0b0c15; color: white; font-family: 'Pretendard', sans-serif; overflow: hidden; height: 100vh; height: 100dvh; }
         .background { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 0; background: radial-gradient(circle at bottom, #1a237e 0%, #000000 80%); }
         .stars { position: fixed; width: 100%; height: 100%; background-image: url('https://cdn.pixabay.com/photo/2016/06/27/22/14/stars-1483324_960_720.png'); opacity: 0.5; z-index: 0; pointer-events: none; }
-
-        /* --- 2. Live2D 캔버스 --- */
         #live2d-canvas { position: fixed; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; display: block; }
 
-        /* --- 3. HUD (대화창) --- */
-        .hud-area {
-            position: fixed; top: 20px; left: 20px; height: 35vh; width: calc(100% - 40px); max-width: 350px; z-index: 10;
-            display: flex; flex-direction: column; gap: 10px; overflow-y: auto; pointer-events: auto;
-            -ms-overflow-style: none; scrollbar-width: none;
-            mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
-            -webkit-mask-image: linear-gradient(to bottom, transparent, black 10%, black 100%);
-        }
-        .hud-area::-webkit-scrollbar { display: none; }
-
-        .zone-badge {
-            align-self: flex-start; background: rgba(79, 195, 247, 0.2); border: 1px solid #4fc3f7; color: #4fc3f7;
-            padding: 5px 12px; border-radius: 15px; font-size: 0.8rem; font-weight: bold;
-            backdrop-filter: blur(5px); box-shadow: 0 0 10px rgba(79, 195, 247, 0.3); flex-shrink: 0; 
-        }
-
-        .chat-bubble {
-            background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); border-radius: 15px; padding: 15px; color: #fff;
-            font-size: 0.95rem; line-height: 1.5; box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-            animation: slideIn 0.4s ease-out; border-left: 3px solid transparent; flex-shrink: 0; 
-        }
-        .chat-bubble.user { border-left-color: #ff9800; align-self: flex-start; background: rgba(0, 0, 0, 0.4); color: #ffd180; }
-        .chat-bubble.ai { border-left-color: #4fc3f7; align-self: flex-start; }
+        /* --- UI 스타일 --- */
+        .hud-area { position: fixed; top: 20px; left: 20px; width: 350px; z-index: 10; display: flex; flex-direction: column; gap: 10px; }
+        .zone-badge { align-self: flex-start; background: rgba(79, 195, 247, 0.2); border: 1px solid #4fc3f7; color: #4fc3f7; padding: 5px 12px; border-radius: 15px; font-weight: bold; backdrop-filter: blur(5px); }
+        .chat-bubble { background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(10px); border-radius: 15px; padding: 15px; margin-bottom: 5px; animation: slideIn 0.4s; }
+        .chat-bubble.ai { border-left: 3px solid #4fc3f7; color: #fff; }
+        .chat-bubble.user { border-left: 3px solid #ff9800; color: #ffd180; align-self: flex-start; }
         @keyframes slideIn { from { opacity: 0; transform: translateX(-20px); } to { opacity: 1; transform: translateX(0); } }
 
-        /* --- 4. 하단 컨트롤 영역 --- */
-        .bottom-container {
-            position: fixed; bottom: 0; left: 0; width: 100%; z-index: 20;
-            display: flex; flex-direction: column; align-items: center;
-            padding-bottom: max(20px, env(safe-area-inset-bottom)); 
-            background: linear-gradient(to top, rgba(0,0,0,0.9) 0%, rgba(0,0,0,0) 100%);
-        }
-
-        .choice-scroll-area {
-            width: 100%; overflow-x: auto; white-space: nowrap; padding: 10px 15px; box-sizing: border-box;
-            -webkit-overflow-scrolling: touch; scrollbar-width: none; display: flex; gap: 10px; justify-content: center;
-        }
+        .bottom-container { position: fixed; bottom: 0; width: 100%; z-index: 20; display: flex; flex-direction: column; align-items: center; padding-bottom: max(20px, env(safe-area-inset-bottom)); background: linear-gradient(to top, rgba(0,0,0,0.9), transparent); }
+        .choice-scroll-area { display: flex; gap: 10px; overflow-x: auto; width: 100%; justify-content: center; padding: 10px; }
         .choice-scroll-area::-webkit-scrollbar { display: none; }
-
-        .choice-btn {
-            background: rgba(255, 255, 255, 0.15); border: 1px solid rgba(255,255,255,0.3); color: white;
-            padding: 10px 20px; border-radius: 25px; font-size: 0.9rem; cursor: pointer; backdrop-filter: blur(5px); transition: 0.2s;
-        }
-        .choice-btn:active { transform: scale(0.95); background: #4fc3f7; color: black; border-color: #4fc3f7; }
-        .choice-btn.move { border-color: #ff9800; color: #ff9800; background: rgba(255, 152, 0, 0.1); }
-
-        .input-bar { width: calc(100% - 30px); max-width: 600px; display: flex; gap: 10px; margin-top: 5px; }
-
-        .input-box {
-            flex: 1; background: rgba(40, 40, 40, 0.8); border: 1px solid #555; border-radius: 25px;
-            padding: 12px 20px; color: white; font-size: 1rem; outline: none; backdrop-filter: blur(5px);
-        }
-        .icon-btn {
-            width: 48px; height: 48px; border-radius: 50%; border: none; color: white; font-size: 1.2rem;
-            cursor: pointer; flex-shrink: 0; display: flex; align-items: center; justify-content: center; transition: 0.2s;
-        }
-        #mic-btn { background: rgba(244, 67, 54, 0.8); }
-        #mic-btn.listening { background: #4caf50; box-shadow: 0 0 15px #4caf50; animation: pulse 1.5s infinite; }
-        #send-btn { background: rgba(63, 81, 181, 0.8); }
+        .choice-btn { background: rgba(255,255,255,0.15); border: 1px solid rgba(255,255,255,0.3); color: white; padding: 10px 20px; border-radius: 25px; cursor: pointer; white-space: nowrap; }
+        .input-bar { display: flex; gap: 10px; width: 90%; max-width: 600px; margin-top: 5px; }
+        .input-box { flex: 1; background: rgba(40,40,40,0.8); border: 1px solid #555; border-radius: 25px; padding: 12px; color: white; }
+        .icon-btn { width: 48px; height: 48px; border-radius: 50%; border: none; cursor: pointer; }
+        #mic-btn { background: #f44336; } #mic-btn.listening { background: #4caf50; animation: pulse 1s infinite; } #send-btn { background: #3f51b5; color: white; }
         @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.1); } 100% { transform: scale(1); } }
 
-        /* --- 5. [NEW] 디버그 콘솔 (오른쪽 상단) --- */
+        /* --- 디버그 콘솔 --- */
         #debug-box {
             position: fixed; top: 10px; right: 10px; width: 300px; height: auto; max-height: 400px;
             background: rgba(0, 0, 0, 0.85); border: 1px solid #00ff00; color: #00ff00;
             font-family: 'Consolas', monospace; font-size: 11px; padding: 10px; z-index: 1000;
-            overflow-y: auto; pointer-events: none; /* 클릭 통과 */
-            white-space: pre-wrap; border-radius: 5px;
+            overflow-y: auto; pointer-events: none; border-radius: 5px;
         }
     </style>
 </head>
@@ -100,8 +54,7 @@
         <div class="zone-badge" id="zone-badge">🏛️ 로비</div>
         <div class="chat-bubble ai">
             안녕! 나는 AI 도슨트 '하루'야! 🌸<br>
-            포천아트밸리 천문과학관에 온 걸 환영해.<br>
-            궁금한 게 있으면 편하게 물어봐!
+            포천아트밸리 천문과학관에 온 걸 환영해.
         </div>
     </div>
 
@@ -117,13 +70,11 @@
     <script type="module">
         import { exhibitionData } from './knowledge.js';
 
-        // --- Live2D 설정 (하루 모델) ---
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/Live2D/CubismWebSamples@develop/Samples/Resources/Haru/Haru.model3.json';
         let live2dApp = null;
         let live2dModel = null;
         let mouthInterval = null;
 
-        // ★ 디버그 로그 함수
         function logDebug(title, data) {
             const box = document.getElementById('debug-box');
             let text = `[${title}]\n`;
@@ -136,25 +87,21 @@
             try {
                 live2dApp = new PIXI.Application({
                     view: document.getElementById('live2d-canvas'),
-                    autoStart: true,
-                    resizeTo: window,
-                    backgroundAlpha: 0 
+                    autoStart: true, resizeTo: window, backgroundAlpha: 0 
                 });
 
                 if(!window.PIXI.live2d) throw new Error("Plugin not loaded");
                 live2dModel = await PIXI.live2d.Live2DModel.from(MODEL_URL);
 
                 resizeModel();
-
                 live2dApp.stage.addChild(live2dModel);
                 live2dModel.interactive = true;
                 
-                // 터치 시 반응
                 live2dModel.on('pointertap', () => {
                     setExpression("happy");
-                    live2dModel.motion('TapBody');
-                    speak("헤헤, 우주는 정말 신비로워!");
-                    logDebug("EVENT", "터치 발생 -> Happy 표정");
+                    // 터치했을 때도 랜덤 포즈
+                    try { live2dModel.motion('TapBody'); } catch(e){}
+                    speak("헤헤, 간지러워!");
                 });
 
                 logDebug("SYSTEM", "Live2D(Haru) 초기화 완료");
@@ -166,42 +113,35 @@
             const isMobile = window.innerWidth < 800; 
             live2dModel.anchor.set(0.5, 0);
             live2dModel.x = window.innerWidth / 2;
-            if (isMobile) {
-                live2dModel.scale.set(0.42);
-                live2dModel.y = window.innerHeight * 0.15;
-            } else {
-                live2dModel.scale.set(0.50);
-                live2dModel.y = window.innerHeight * 0.05;
-            }
+            if (isMobile) { live2dModel.scale.set(0.42); live2dModel.y = window.innerHeight * 0.15; } 
+            else { live2dModel.scale.set(0.50); live2dModel.y = window.innerHeight * 0.05; }
         }
         window.addEventListener('resize', resizeModel);
         initLive2D();
 
-        // --- 표정 변경 (하루 전용) ---
+        // --- ★ [수정] 표정 간소화 (웃음 or 기본) ---
         function setExpression(emotion) {
             if (!live2dModel) return;
 
-            let expId = "F01"; // 기본: 웃음
-            let debugMsg = "기본(F01)";
+            let expId = "F01"; // 기본값: 웃음 (F01)
+            let debugMsg = "F01(Smile)";
 
-            switch(emotion) {
-                case "happy": 
-                case "joy": expId = "F01"; debugMsg="F01(Smile)"; break;
-                case "sad": expId = "F08"; debugMsg="F08(Sad/Trouble)"; break;
-                case "angry":
-                case "serious": expId = "F04"; debugMsg="F04(Angry)"; break;
-                case "surprise": expId = "F06"; debugMsg="F06(Surprise)"; break;
-                case "shy": expId = "F03"; debugMsg="F03(Shy)"; break;
-                default: expId = "F01";
+            // 주임님 요청: 화나거나 슬픈 표정 삭제 -> 무조건 웃거나 평범하게
+            if (emotion === "neutral") {
+                // 평범한 표정을 원하면 표정 리셋(혹은 F01)
+                // Haru는 F01이 웃는거라, F01을 기본으로 쓰는게 보기 좋습니다.
+                expId = "F01"; 
+                debugMsg = "F01(Neutral->Smile)";
+            } else {
+                // happy, surprise, angry, sad 등 뭐가 들어와도 그냥 웃음(F01)으로 통일하거나
+                // 약간의 변주로 놀람(F06) 정도만 허용
+                if(emotion === "surprise") { expId = "F06"; debugMsg = "F06(Surprise)"; }
+                else { expId = "F01"; debugMsg = "F01(Happy)"; }
             }
 
             try {
                 live2dModel.expression(expId);
-                // 모션도 랜덤으로 살짝 섞어줌 (너무 정적이지 않게)
-                const rand = Math.random();
-                if(rand > 0.7) live2dModel.motion('TapBody'); 
-                
-                logDebug("EXPRESSION", `감정:${emotion} -> 표정:${debugMsg}`);
+                logDebug("EXPRESSION", `요청:${emotion} -> 적용:${debugMsg}`);
             } catch(e) { logDebug("EXP_ERROR", e); }
         }
 
@@ -209,153 +149,32 @@
         async function searchWikipedia(query) {
             const cleanQuery = query.replace(/(이|가|은|는|을|를)?\s*(뭐야|알려줘|어떻게|왜|있어|없어|설명해줘|궁금해|\?|\.|!)+/g, "").trim();
             if (cleanQuery.length < 1) return null;
-
-            const endpoint = "https://ko.wikipedia.org/w/api.php";
-            const params = new URLSearchParams({
-                action: "query", format: "json", prop: "extracts",
-                exintro: true, explaintext: true, redirects: 1,
-                titles: cleanQuery, origin: "*"
-            });
-
             try {
-                const response = await fetch(`${endpoint}?${params}`);
-                const data = await response.json();
-                const pages = data.query.pages;
-                const pageId = Object.keys(pages)[0];
+                const res = await fetch(`https://ko.wikipedia.org/w/api.php?action=query&format=json&prop=extracts&exintro=true&explaintext=true&redirects=1&titles=${cleanQuery}&origin=*`);
+                const data = await res.json();
+                const pageId = Object.keys(data.query.pages)[0];
                 if (pageId === "-1") return null;
-                let content = pages[pageId].extract;
-                if (content.length > 200) content = content.substring(0, 200) + "...";
-                return content;
-            } catch (e) { return null; }
+                let txt = data.query.pages[pageId].extract;
+                return txt.length > 200 ? txt.substring(0, 200) + "..." : txt;
+            } catch(e) { return null; }
         }
 
-        // --- 음성 인식 (STT) ---
+        // --- STT ---
         const micBtn = document.getElementById('mic-btn');
-        let recognition = null;
-
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            recognition = new SpeechRecognition();
+        if ('webkitSpeechRecognition' in window) {
+            const recognition = new webkitSpeechRecognition();
             recognition.lang = 'ko-KR';
-            recognition.continuous = false;
-            recognition.interimResults = false;
-
-            micBtn.onclick = () => {
-                if (micBtn.classList.contains('listening')) recognition.stop();
-                else recognition.start();
+            recognition.onstart = () => { micBtn.classList.add('listening'); logDebug("STT", "듣고 있어요..."); };
+            recognition.onend = () => micBtn.classList.remove('listening');
+            recognition.onresult = (e) => {
+                const txt = e.results[0][0].transcript;
+                document.getElementById('text-input').value = txt;
+                handleUserInput(txt);
             };
+            micBtn.onclick = () => recognition.start();
+        } else { micBtn.style.display = 'none'; }
 
-            recognition.onstart = () => {
-                micBtn.classList.add('listening');
-                document.getElementById('text-input').placeholder = "듣고 있어요... 👂";
-                logDebug("STT", "음성 인식 시작...");
-            };
-
-            recognition.onend = () => {
-                micBtn.classList.remove('listening');
-                document.getElementById('text-input').placeholder = "질문을 입력하세요...";
-            };
-
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                document.getElementById('text-input').value = transcript;
-                logDebug("STT Result", transcript);
-                handleUserInput(transcript);
-            };
-        } else {
-            micBtn.style.display = 'none';
-        }
-
-        // --- 도슨트 로직 (전체 복구됨) ---
-        const zones = {
-            'lobby': {
-                name: "로비 (1F)",
-                basePrompt: "너는 1층 로비 도슨트야.",
-                buttons: [
-                    { text: "아트밸리는 원래 뭐하던 곳?", type: "chat", answers: ["원래 돌을 캐던 채석장이었어!"] },
-                    { text: "천주호 설명해줘", type: "chat", answers: ["1급수 호수야. 가재도 살아!"] },
-                    { text: "1전시실로 이동 👉", type: "move", target: "ex1" }
-                ]
-            },
-            'ex1': {
-                name: "제1전시실 (지구)",
-                basePrompt: "너는 1전시실(지구) 도슨트야.",
-                buttons: [
-                    { text: "지구 구조", type: "ask", key: "earth_structure_detail" },
-                    { text: "판구조론", type: "ask", key: "plate_tectonics_detail" },
-                    { text: "👈 로비로", type: "move", target: "lobby" },
-                    { text: "2전시실로 ↗️", type: "move", target: "ex2" }
-                ]
-            },
-            'ex2': {
-                name: "제2전시실 (태양계)",
-                basePrompt: "너는 2전시실(태양계) 도슨트야.",
-                buttons: [
-                    { text: "행성 특징", type: "ask", key: "solar_system_planets" },
-                    { text: "목성까지 거리", type: "ask", key: "space_distance" },
-                    { text: "옆방(휴게실) 👉", type: "move", target: "rest" }
-                ]
-            },
-            'rest': {
-                name: "휴게실 (월면차)",
-                basePrompt: "너는 휴게실 도슨트야.",
-                buttons: [
-                    { text: "월면차 바퀴 비밀", type: "ask", key: "lunar_rover" },
-                    { text: "3전시실로 👉", type: "move", target: "ex3" }
-                ]
-            },
-            'ex3': {
-                name: "제3전시실 (우주)",
-                basePrompt: "너는 3전시실 도슨트야.",
-                buttons: [
-                    { text: "별의 탄생", type: "ask", key: "star_life_color" },
-                    { text: "처음으로 🏠", type: "move", target: "lobby" }
-                ]
-            }
-        };
-
-        let currentZoneId = 'lobby';
-        const hudContainer = document.getElementById('hud-container');
-        const zoneBadge = document.getElementById('zone-badge');
-
-        function addMessage(text, type) {
-            const bubble = document.createElement('div');
-            bubble.className = `chat-bubble ${type}`;
-            let formatted = text.replace(/\*\*(.*?)\*\*/g, '<b>$1</b>').replace(/\n/g, '<br>');
-            bubble.innerHTML = formatted;
-            hudContainer.appendChild(bubble);
-            hudContainer.scrollTop = hudContainer.scrollHeight;
-        }
-
-        window.setZone = (zoneId) => {
-            currentZoneId = zoneId;
-            const config = zones[zoneId];
-            zoneBadge.innerText = `📍 ${config.name}`;
-            addMessage(`${config.name}에 도착했어!`, 'ai');
-            speak(`${config.name}에 도착했어!`);
-            renderButtons(config.buttons);
-            logDebug("ZONE", `이동: ${config.name}`);
-        };
-
-        function renderButtons(buttons) {
-            const container = document.getElementById('choice-container');
-            container.innerHTML = '';
-            if(buttons.length < 3) container.style.justifyContent = 'center';
-            else container.style.justifyContent = 'flex-start';
-
-            buttons.forEach(btn => {
-                const b = document.createElement('button');
-                b.innerText = btn.text;
-                b.className = `choice-btn ${btn.type === 'move' ? 'move' : ''}`;
-                b.onclick = () => {
-                    if (btn.type === 'move') setZone(btn.target);
-                    else handleUserInput(btn.text, btn.key, btn.answers);
-                };
-                container.appendChild(b);
-            });
-        }
-
-        // --- ★ 메인 로직 (Gemini 호출) ---
+        // --- 메인 로직 ---
         async function handleUserInput(text, dataKey = null, answers = null) {
             addMessage(text, 'user');
 
@@ -363,6 +182,8 @@
                 const ans = answers[Math.floor(Math.random() * answers.length)];
                 setTimeout(() => { 
                     setExpression("happy");
+                    // ★ [수정] 대화할 때 포즈 취하기
+                    if(live2dModel) try{ live2dModel.motion('TapBody'); } catch(e){}
                     addMessage(ans, 'ai'); 
                     speak(ans); 
                 }, 500);
@@ -371,64 +192,65 @@
 
             addMessage("잠시만... 하루가 찾아볼게! 🔍", 'ai'); 
             
-            let contextSource = "";
             let contextData = "";
+            let contextSource = "";
             let foundItem = null;
 
             if (dataKey) foundItem = exhibitionData.find(d => d.id === dataKey);
             else foundItem = exhibitionData.find(d => text.includes(d.title.split('(')[0].trim()));
 
             if (foundItem) {
-                contextSource = "과학관 전시물 정보";
-                contextData = `[전시물 정보] 제목:${foundItem.title}, 내용:${foundItem.description.basic}`;
+                contextSource = "전시물";
+                contextData = `[전시물] ${foundItem.title}: ${foundItem.description.basic}`;
             } else {
-                const wikiResult = await searchWikipedia(text);
-                if (wikiResult) {
+                const wikiText = await searchWikipedia(text);
+                if (wikiText) {
                     contextSource = "위키백과";
-                    contextData = `[위키백과]: ${wikiResult}`;
+                    contextData = `[위키백과] ${wikiText}`;
                 }
             }
 
-            // 프롬프트 (JSON 강제)
+            // ★ [수정] 프롬프트: 감정은 'happy' 아니면 'neutral'만 내놓으라고 강제
             const prompt = `
                 ${zones[currentZoneId].basePrompt}
                 [질문]: "${text}"
                 ${contextData ? `[참고 자료(${contextSource})]: ${contextData}` : "[참고 자료 없음]"}
                 
                 ★지침★
-                1. 너는 포천아트밸리 천문과학관의 AI 도슨트 '하루'야. 
-                2. 답변 형식은 반드시 **JSON**이어야 해. (마크다운 없이 순수 JSON만)
-                3. 예시: {"emotion": "happy", "reply": "응! 그건 말이야~"}
-                4. emotion 종류: "happy", "sad", "surprise", "angry", "shy"
-                5. 천문/과학 질문이 아니면 emotion="angry", reply="그건 내가 대답하기 곤란해." 라고 거절해.
-                6. 답변은 3문장 이내 반말.
+                1. AI 도슨트 '하루'가 되어 답변해.
+                2. 답변 형식은 **JSON**만 출력. 예시: {"emotion": "happy", "reply": "응! 그건~"}
+                3. **emotion은 무조건 "happy" 아니면 "neutral" 둘 중 하나만 써.** (화내거나 슬퍼하지 마)
+                4. 천문/과학 질문 아니면 emotion="neutral", reply="그건 내가 모르는 분야야." 라고 거절.
+                5. 답변 3문장 이내 반말.
             `;
 
             try {
                 const responseData = await callGeminiAPI(text, prompt);
-                
-                // --- JSON 파싱 및 디버그 ---
                 let result = {};
-                // Gemini가 가끔 ```json ... ``` 형태로 줄 때가 있어서 제거
                 const cleanJson = responseData.replace(/```json|```/g, "").trim();
-                
-                logDebug("GEMINI_RAW", cleanJson); // ★ 여기서 JSON 확인 가능!
+                logDebug("GEMINI", cleanJson);
 
-                try {
-                    result = JSON.parse(cleanJson);
-                } catch (e) {
-                    logDebug("PARSE_ERROR", "JSON 형식이 깨짐 -> 일반 텍스트 처리");
-                    result = { emotion: "neutral", reply: responseData };
+                try { result = JSON.parse(cleanJson); } 
+                catch (e) { result = { emotion: "happy", reply: responseData }; }
+
+                // 1. 표정 설정
+                setExpression(result.emotion || "happy");
+                
+                // 2. ★ [수정] 말할 때 무조건 랜덤 포즈(Motion) 실행
+                // Haru 모델은 'TapBody' 그룹을 부르면 랜덤한 제스처(m01~m26) 중 하나를 실행합니다.
+                if(live2dModel) {
+                    try { 
+                        live2dModel.motion('TapBody'); 
+                        logDebug("MOTION", "자연스러운 제스처 실행(TapBody)");
+                    } catch(e) { logDebug("MOTION_ERR", e); }
                 }
 
-                setExpression(result.emotion || "neutral");
                 addMessage(result.reply, 'ai');
                 speak(result.reply);
 
             } catch (err) {
                 console.error(err);
                 addMessage("오류가 났어 ㅠㅠ", 'ai');
-                logDebug("ERROR", err.message);
             }
         }
 
@@ -440,14 +262,11 @@
                     body: JSON.stringify({ message: text, systemPrompt: systemPrompt })
                 });
                 const data = await response.json();
-                if (data.error) return JSON.stringify({ emotion: "sad", reply: "API 오류가 발생했어." });
                 return data.reply;
-            } catch (err) {
-                return JSON.stringify({ emotion: "sad", reply: "인터넷 연결을 확인해줘." });
-            }
+            } catch (err) { return JSON.stringify({ emotion: "neutral", reply: "서버 연결 실패 ㅠㅠ" }); }
         }
 
-        // --- ★ [수정됨] 입모양 강제 동기화 ---
+        // --- ★ [수정] 입모양(Lip Sync) 강력 보정 ---
         function speak(text) {
             window.speechSynthesis.cancel(); 
 
@@ -459,33 +278,79 @@
             if (mouthInterval) clearInterval(mouthInterval);
 
             utterance.onstart = () => {
-                logDebug("TTS", "말하기 시작 (입벌림)");
-                // 50ms마다 강제로 입 모양 값을 랜덤하게 줌 (0.2 ~ 0.8)
+                logDebug("TTS", "말하기 시작");
+                // 50ms마다 입 벌리기 명령을 '강제로' 주입
                 mouthInterval = setInterval(() => {
                     if (live2dModel) {
                         try { 
-                            const val = Math.random() * 0.6 + 0.2; 
+                            // 0.3 ~ 1.0 사이로 랜덤하게 입 벌림
+                            const val = Math.random() * 0.7 + 0.3; 
+                            
+                            // ★ 하루 모델이 사용하는 파라미터 이름 2개 다 공략
                             live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', val); 
+                            live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpen', val); 
                         } catch(e){}
                     }
-                }, 50);
+                }, 50); // 0.05초마다 갱신
             };
 
             utterance.onend = () => {
-                logDebug("TTS", "말하기 끝 (입다뭄)");
+                logDebug("TTS", "말하기 끝");
                 if (mouthInterval) { clearInterval(mouthInterval); mouthInterval = null; }
                 if (live2dModel) {
-                    try { live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); } catch(e){}
+                    // 입 다물기
+                    try { 
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpenY', 0); 
+                        live2dModel.internalModel.coreModel.setParameterValueById('ParamMouthOpen', 0); 
+                    } catch(e){}
                 }
             };
 
             window.speechSynthesis.speak(utterance);
         }
 
-        const textInput = document.getElementById('text-input');
-        const sendBtn = document.getElementById('send-btn');
-        sendBtn.onclick = () => { if(textInput.value){ handleUserInput(textInput.value); textInput.value=''; }};
-        textInput.onkeypress = (e) => { if(e.key==='Enter') sendBtn.click(); };
+        // --- 기타 로직 ---
+        const zones = {
+            'lobby': { name: "로비 (1F)", basePrompt: "너는 1층 로비 도슨트야.", buttons: [{ text: "천주호 설명해줘", type: "chat", answers: ["1급수 호수야."] }, { text: "1전시실로 이동 👉", type: "move", target: "ex1" }] },
+            'ex1': { name: "제1전시실 (지구)", basePrompt: "너는 1전시실 도슨트야.", buttons: [{ text: "지구 구조", type: "ask", key: "earth_structure_detail" }, { text: "2전시실로 ↗️", type: "move", target: "ex2" }] },
+            'ex2': { name: "제2전시실 (태양계)", basePrompt: "너는 2전시실 도슨트야.", buttons: [{ text: "행성 특징", type: "ask", key: "solar_system_planets" }, { text: "옆방(휴게실) 👉", type: "move", target: "rest" }] },
+            'rest': { name: "휴게실 (월면차)", basePrompt: "너는 휴게실 도슨트야.", buttons: [{ text: "월면차 바퀴 비밀", type: "ask", key: "lunar_rover" }, { text: "3전시실로 👉", type: "move", target: "ex3" }] },
+            'ex3': { name: "제3전시실 (우주)", basePrompt: "너는 3전시실 도슨트야.", buttons: [{ text: "별의 탄생", type: "ask", key: "star_life_color" }, { text: "처음으로 🏠", type: "move", target: "lobby" }] }
+        };
+        let currentZoneId = 'lobby';
+        
+        const hudContainer = document.getElementById('hud-container');
+        const zoneBadge = document.getElementById('zone-badge');
+
+        function addMessage(text, type) {
+            const bubble = document.createElement('div');
+            bubble.className = `chat-bubble ${type}`;
+            bubble.innerHTML = text.replace(/\n/g, '<br>');
+            hudContainer.appendChild(bubble);
+            hudContainer.scrollTop = hudContainer.scrollHeight;
+        }
+
+        window.setZone = (zoneId) => {
+            currentZoneId = zoneId;
+            const config = zones[zoneId];
+            zoneBadge.innerText = `📍 ${config.name}`;
+            addMessage(`${config.name}에 도착했어!`, 'ai');
+            speak(`${config.name}에 도착했어!`);
+            
+            // 버튼 렌더링
+            const container = document.getElementById('choice-container');
+            container.innerHTML = '';
+            if(config.buttons.length < 3) container.style.justifyContent = 'center';
+            else container.style.justifyContent = 'flex-start';
+            config.buttons.forEach(btn => {
+                const b = document.createElement('button');
+                b.innerText = btn.text;
+                b.className = `choice-btn ${btn.type === 'move' ? 'move' : ''}`;
+                b.onclick = () => { if (btn.type === 'move') setZone(btn.target); else handleUserInput(btn.text, btn.key, btn.answers); };
+                container.appendChild(b);
+            });
+            logDebug("ZONE", config.name);
+        };
 
         window.onload = () => setZone('lobby');
     </script>
